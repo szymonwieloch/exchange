@@ -48,6 +48,20 @@ build-*/
 CMakeFiles/
 CMakeCache.txt
 cmake_install.cmake
+
+# FetchContent downloaded dependencies
+_deps/
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# clangd cache
+.cache/
+
 Makefile
 install_manifest.txt
 compile_commands.json

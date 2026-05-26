@@ -1,0 +1,107 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  # ── Format Check ──────────────────────────────────────────────
+  format-check:
+    name: Format Check (clang-format)
+    runs-on: ubuntu-latest
+    container: silkeh/clang:18
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run clang-format
+        run: |
+          find src/ tests/ -name '*.cpp' -o -name '*.h' | xargs clang-format --dry-run --Werror
+
+  # ── Lint (clang-tidy) ────────────────────────────────────────
+  lint:
+    name: Lint (clang-tidy)
+    runs-on: ubuntu-latest
+    container: silkeh/clang:18
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          apt-get update && apt-get install -y --no-install-recommends \
+            cmake ninja-build
+
+      - name: Configure CMake
+        run: |
+          cmake -B build -G Ninja \
+            -DCMAKE_C_COMPILER=clang \
+            -DCMAKE_CXX_COMPILER=clang++ \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+      - name: Run clang-tidy
+        run: |
+          # Run on all source files
+          find src/ tests/ -name '*.cpp' -o -name '*.h' \
+            | xargs clang-tidy -p build --warnings-as-errors='*'
+
+  # ── Build & Test ─────────────────────────────────────────────
+  build-and-test:
+    name: Build & Test
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        compiler: [gcc, clang]
+        build-type: [Debug, Release]
+        exclude:
+          # Reduce matrix: skip clang on macOS to speed things up
+          - os: macos-latest
+            compiler: clang
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up compiler
+        run: |
+          if [ "${{ matrix.compiler }}" = "gcc" ]; then
+            echo "CC=gcc" >> $GITHUB_ENV
+            echo "CXX=g++" >> $GITHUB_ENV
+          else
+            echo "CC=clang" >> $GITHUB_ENV
+            echo "CXX=clang++" >> $GITHUB_ENV
+          fi
+
+      - name: Configure CMake
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build-type }} \
+            -DCMAKE_C_COMPILER=${{ env.CC }} \
+            -DCMAKE_CXX_COMPILER=${{ env.CXX }}
+
+      - name: Build
+        run: cmake --build build --parallel $(nproc 2>/dev/null || sysctl -n hw.logicalcpu)
+
+      - name: Run tests
+        run: cd build && ctest --output-on-failure --verbose
+
+  # ── Sanitizers (Address + Undefined Behavior) ────────────────
+  sanitizers:
+    name: Sanitizers (ASan + UBSan)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure with sanitizers
+        run: |
+          cmake -B build \
+            -DCMAKE_C_COMPILER=clang \
+            -DCMAKE_CXX_COMPILER=clang++ \
+            -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer" \
+            -DCMAKE_LINKER_FLAGS="-fsanitize=address,undefined" \
+            -DCMAKE_BUILD_TYPE=Debug
+
+      - name: Build
+        run: cmake --build build --parallel $(nproc)
+
+      - name: Run tests with sanitizers
+        run: cd build && ctest --output-on-failure --verbose
