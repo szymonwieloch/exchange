@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+
 #include "lib/calculator.h"
 
 TEST(CalculatorTest, Add) {
