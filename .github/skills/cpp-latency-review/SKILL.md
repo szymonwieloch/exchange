@@ -44,7 +44,7 @@ For every code change, go through the categories below in order. Flag issues wit
 - **Custom allocators**: If dynamic allocation is unavoidable, verify pool/arena allocators with O(1) allocation are used.
 
 #### Cache Locality
-- **False sharing**: Are hot-path atomic or frequently-written variables in the same cache line as other hot data? Use `alignas(64)` (or `std::hardware_destructive_interference_size` in C++17) to separate.
+- **False sharing**: Are hot-path atomic or frequently-written variables in the same cache line as other hot data? Use `alignas(64)` (or `std::hardware_destructive_interference_size` in C++23) to separate.
 - **Data layout**: Are structs organized for cache efficiency? Group frequently-accessed fields together. Consider AoS vs SoA for hot loops.
 - **Prefetching**: For linked structures, is `__builtin_prefetch` used where appropriate?
 
