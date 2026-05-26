@@ -28,7 +28,7 @@ void consumeAndExpect(LFQueue<int>& queue, std::initializer_list<int> expected) 
     }
 }
 
-} // namespace
+}  // namespace
 
 // ── Trivial payload for tests ────────────────────────────────────
 struct Payload {
