@@ -10,8 +10,7 @@ namespace utils {
 template <typename T>
 class MemPool final {
 public:
-    explicit MemPool(std::size_t num_elems)
-        : store(num_elems, {T(), true}) {}
+    explicit MemPool(std::size_t num_elems) : store(num_elems, {T(), true}) {}
 
     template <typename... Args>
     T *allocate(Args... args) noexcept {
@@ -32,7 +31,7 @@ private:
     };
 
     auto updateNextFreeIndex() noexcept {
-        const auto initialFreeIndex = next_free_index;
+        [[maybe_unused]] const auto initialFreeIndex = next_free_index;
         while (!store[next_free_index].is_free) {
             ++next_free_index;
             if (next_free_index == store.size()) [[unlikely]] {

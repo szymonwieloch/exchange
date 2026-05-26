@@ -4,7 +4,7 @@
 
 namespace utils {
 
-inline bool setThreadCore(int core_id) noexcept {
+[[nodiscard]] inline bool setThreadCore(int core_id) noexcept {
     cpu_set_t cpuset;
     CPU_ZERO(&cpuset);
     CPU_SET(core_id, &cpuset);
