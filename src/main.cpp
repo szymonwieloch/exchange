@@ -1,6 +1,8 @@
 #include <iostream>
 
 #include "lib/calculator.h"
+#include "lib/utils/mem.h"
+#include "lib/utils/thread.h"
 
 int main() {
     std::cout << "2 + 3 = " << Calculator::add(2, 3) << '\n';
