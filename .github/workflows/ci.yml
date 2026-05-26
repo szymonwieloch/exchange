@@ -50,13 +50,9 @@ jobs:
     name: Build & Test
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest]
         compiler: [gcc, clang]
         build-type: [Debug, Release]
-        exclude:
-          # Reduce matrix: skip clang on macOS to speed things up
-          - os: macos-latest
-            compiler: clang
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4

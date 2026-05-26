@@ -1,6 +1,6 @@
 # Exchange Project — Agent Guidelines
 
-Ultra low-latency C++23 exchange/trading system. Every microsecond matters.
+Ultra low-latency C++23 exchange/trading system. Every microsecond matters. **Linux only** — no cross-platform abstractions needed.
 
 ## Build & Test
 
