@@ -2,8 +2,8 @@
 
 class Calculator {
 public:
-    double add(double a, double b) const;
-    double subtract(double a, double b) const;
-    double multiply(double a, double b) const;
-    double divide(double a, double b) const;
+    [[nodiscard]] static double add(double lhs, double rhs);
+    [[nodiscard]] static double subtract(double lhs, double rhs);
+    [[nodiscard]] static double multiply(double lhs, double rhs);
+    [[nodiscard]] static double divide(double lhs, double rhs);
 };
