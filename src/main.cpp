@@ -2,6 +2,7 @@
 
 #include "lib/calculator.h"
 #include "lib/utils/mem.h"
+#include "lib/utils/queue.h"
 #include "lib/utils/thread.h"
 
 int main() {
