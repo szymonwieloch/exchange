@@ -14,6 +14,7 @@ using Quantity = std::uint32_t;
 const Quantity Quantity_INVALID = std::numeric_limits<Quantity>::max();
 using Cents = std::uint64_t;
 using Priority = std::uint64_t;
+const Priority Priority_INVALID = std::numeric_limits<Priority>::max();
 using Timestamp = std::chrono::time_point<std::chrono::steady_clock>;
 using TickerId = std::uint16_t;
 const TickerId TickerId_INVALID = std::numeric_limits<TickerId>::max();
@@ -30,7 +31,5 @@ constexpr size_t ME_MAX_MARKET_UPDATES = 256 * 1024;
 constexpr size_t ME_MAX_NUM_CLIENTS = 256;
 constexpr size_t ME_MAX_ORDER_IDS = 1024 * 1024;
 constexpr size_t ME_MAX_PRICE_LEVELS = 256;
-
-enum class OrderType : uint8_t { INVALID = 0, NEW = 1, CANCEL = 2 };
 
 }  // namespace book
