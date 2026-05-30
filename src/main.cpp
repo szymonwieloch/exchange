@@ -2,6 +2,7 @@
 
 #include "lib/book/book.h"
 #include "lib/book/definitions.h"
+#include "lib/book/engine.h"
 #include "lib/book/md.h"
 #include "lib/book/request.h"
 #include "lib/utils/die.h"

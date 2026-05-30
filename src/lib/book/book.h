@@ -31,4 +31,28 @@ struct Order {
           next_order(next_order) {}
     auto toString() const -> std::string;
 };
+
+using OrderMap = std::array<Order *, ME_MAX_ORDER_IDS>;
+using UserOrderHashMap = std::array<OrderMap, ME_MAX_NUM_CLIENTS>;
+
+struct OrdersAtPrice {
+    OrdersAtPrice() = default;
+
+    OrdersAtPrice(Side side, Price price, Order *first_order, OrdersAtPrice *prev_entry,
+                  OrdersAtPrice *next_entry)
+        : side(side),
+          price(price),
+          first_order(first_order),
+          prev_entry(prev_entry),
+          next_entry(next_entry) {}
+
+    Side side = Side::INVALID;
+    Price price = Price_INVALID;
+    Order *first_order = nullptr;
+    OrdersAtPrice *prev_entry = nullptr;
+    OrdersAtPrice *next_entry = nullptr;
+};
+
+using OrdersAtPriceMap = std::array<OrdersAtPrice *, ME_MAX_PRICE_LEVELS>;
+
 }  // namespace book

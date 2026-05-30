@@ -14,4 +14,6 @@ struct MDUpdate {
     Priority priority = Priority_INVALID;
 };
 
+using MDLFQueue = utils::LFQueue<MDUpdate>;
+
 }  // namespace book
