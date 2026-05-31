@@ -68,7 +68,8 @@ void MatchingEngine::processClientRequest(const Request *client_request) noexcep
 }
 
 void MatchingEngine::sendResponse(const Response &response) noexcept {
-    (void)response;
+    *outgoing_ogw_responses->getNextToWriteTo() = response;
+    outgoing_ogw_responses->updateWriteIndex();
 }
 
 }  // namespace exchange

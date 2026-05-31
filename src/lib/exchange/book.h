@@ -31,7 +31,6 @@ struct Order {
           priority(priority),
           prev_order(prev_order),
           next_order(next_order) {}
-    auto toString() const -> std::string;
 };
 
 using OrderMap = std::array<Order *, ME_MAX_ORDER_IDS>;
@@ -77,6 +76,14 @@ public:
     OrderBook &operator=(const OrderBook &&) = delete;
 
 private:
+    std::size_t priceToIndex(Price price) const noexcept {
+        return (type_safe::get(price) % ME_MAX_PRICE_LEVELS);
+    }
+
+    OrdersAtPrice *getOrdersAtPrice(Price price) const noexcept {
+        return price_orders_at_price.at(priceToIndex(price));
+    }
+
     TickerId ticker_id = TickerId::INVALID;
     MatchingEngine *matching_engine = nullptr;
     OrderMap cid_oid_to_order;
