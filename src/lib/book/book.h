@@ -6,14 +6,14 @@
 
 namespace book {
 struct Order {
-    TickerId ticker_id = TickerId_INVALID;
-    UserId client_id = UserId_INVALID;
-    OrderId order_id = OrderId_INVALID;
-    OrderId market_order_id = OrderId_INVALID;
+    TickerId ticker_id = TickerId::INVALID;
+    UserId client_id = UserId::INVALID;
+    OrderId order_id = OrderId::INVALID;
+    OrderId market_order_id = OrderId::INVALID;
     Side side = Side::INVALID;
-    Price price = Price_INVALID;
-    Quantity qty = Quantity_INVALID;
-    Priority priority = Priority_INVALID;
+    Price price = Price::INVALID;
+    Quantity qty = Quantity::INVALID;
+    Priority priority = Priority::INVALID;
     Order *prev_order = nullptr;
     Order *next_order = nullptr;
     // only needed for use with MemPool.
@@ -49,7 +49,7 @@ struct OrdersAtPrice {
           next_entry(next_entry) {}
 
     Side side = Side::INVALID;
-    Price price = Price_INVALID;
+    Price price = Price::INVALID;
     Order *first_order = nullptr;
     OrdersAtPrice *prev_entry = nullptr;
     OrdersAtPrice *next_entry = nullptr;
@@ -77,7 +77,7 @@ public:
     OrderBook &operator=(const OrderBook &&) = delete;
 
 private:
-    TickerId ticker_id = TickerId_INVALID;
+    TickerId ticker_id = TickerId::INVALID;
     MatchingEngine *matching_engine = nullptr;
     OrderMap cid_oid_to_order;
     utils::MemPool<OrdersAtPrice> orders_at_price_pool;
@@ -87,7 +87,7 @@ private:
     utils::MemPool<Order> order_pool;
     // ClientResponse client_response;
     // MarketUpdate market_update;
-    OrderId next_market_order_id = 1;
+    OrderId next_market_order_id{1};
     std::string time_str;
     utils::Logger *logger = nullptr;
 };

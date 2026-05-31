@@ -11,4 +11,5 @@ target_include_directories(exchange_lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
+target_link_libraries(exchange_lib PUBLIC type_safe)
 target_link_libraries(exchange PRIVATE exchange_lib)

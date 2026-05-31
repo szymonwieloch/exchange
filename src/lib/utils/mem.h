@@ -27,7 +27,7 @@ template <typename T>
 class MemPool final {
 public:
     /// Pre-allocates @p num_elems default-constructed objects.
-    explicit MemPool(std::size_t num_elems) : store(num_elems, {T(), true}) {}
+    explicit MemPool(std::size_t num_elems) : store(num_elems, ObjectBlock{T(), true}) {}
 
     /// Allocates a slot from the pool and constructs a T in-place.
     ///

@@ -8,7 +8,8 @@ MatchingEngine::MatchingEngine(RequestLFQueue *client_requests, ResponseLFQueue 
       outgoing_md_updates(market_updates),
       logger("exchange_matching_engine.log") {
     for (size_t i = 0; i < ticker_order_book.size(); ++i) {
-        ticker_order_book[i] = new OrderBook(i, &logger, this);
+        ticker_order_book[i] =
+            new OrderBook(TickerId{static_cast<std::uint16_t>(i)}, &logger, this);
     }
 }
 
@@ -52,7 +53,7 @@ void MatchingEngine::run() noexcept {
 }
 
 void MatchingEngine::processClientRequest(const Request *client_request) noexcept {
-    auto order_book = ticker_order_book[client_request->ticker_id];
+    auto order_book = ticker_order_book[type_safe::get(client_request->ticker_id)];
     switch (client_request->type) {
         case RequestType::NEW: {
             order_book->add(client_request->user_id, client_request->order_id,

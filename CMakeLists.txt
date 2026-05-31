@@ -16,6 +16,24 @@ endif()
 # Enable testing
 enable_testing()
 
+# Dependencies
+include(FetchContent)
+
+# debug_assert — lightweight assertion library (dependency of type_safe)
+FetchContent_Declare(
+    debug_assert
+    URL https://github.com/foonathan/debug_assert/archive/refs/tags/v1.3.3.tar.gz
+)
+FetchContent_MakeAvailable(debug_assert)
+
+# type_safe — zero-overhead type-safe utilities for C++
+FetchContent_Declare(
+    type_safe
+    URL https://github.com/foonathan/type_safe/archive/refs/tags/v0.2.4.tar.gz
+)
+set(TYPE_SAFE_FETCH_MISSING_DEPENDENCIES OFF CACHE BOOL "")
+FetchContent_MakeAvailable(type_safe)
+
 # Subdirectories
 add_subdirectory(src)
 

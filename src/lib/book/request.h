@@ -18,24 +18,24 @@ enum class ResponseType : uint8_t {
 
 struct Request {
     RequestType type = RequestType::INVALID;
-    UserId user_id = UserId_INVALID;
-    TickerId ticker_id = TickerId_INVALID;
-    OrderId order_id = OrderId_INVALID;
+    UserId user_id = UserId::INVALID;
+    TickerId ticker_id = TickerId::INVALID;
+    OrderId order_id = OrderId::INVALID;
     Side side = Side::INVALID;
-    Price price = Price_INVALID;
-    Quantity qty = Quantity_INVALID;
+    Price price = Price::INVALID;
+    Quantity qty = Quantity::INVALID;
 };
 
 struct Response {
     ResponseType type = ResponseType::INVALID;
-    UserId user_id = UserId_INVALID;
-    TickerId ticker_id = TickerId_INVALID;
-    OrderId order_id = OrderId_INVALID;
-    OrderId market_order_id = OrderId_INVALID;
+    UserId user_id = UserId::INVALID;
+    TickerId ticker_id = TickerId::INVALID;
+    OrderId order_id = OrderId::INVALID;
+    OrderId market_order_id = OrderId::INVALID;
     Side side = Side::INVALID;
-    Price price = Price_INVALID;
-    Quantity exec_qty = Quantity_INVALID;
-    Quantity leaves_qty = Quantity_INVALID;
+    Price price = Price::INVALID;
+    Quantity exec_qty = Quantity::INVALID;
+    Quantity leaves_qty = Quantity::INVALID;
 
     static Response accepted(UserId user_id, TickerId ticker_id, OrderId order_id,
                              OrderId market_order_id, Side side, Price price,
@@ -47,7 +47,7 @@ struct Response {
                         .market_order_id = market_order_id,
                         .side = side,
                         .price = price,
-                        .exec_qty = 0,
+                        .exec_qty = Quantity{0},
                         .leaves_qty = qty};
     }
 
