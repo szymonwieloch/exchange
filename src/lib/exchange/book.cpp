@@ -3,7 +3,7 @@
 #include "engine.h"
 #include "request.h"
 
-namespace book {
+namespace exchange {
 OrderBook::OrderBook(TickerId ticker_id, utils::Logger* logger, MatchingEngine* matching_engine)
     : ticker_id(ticker_id),
       matching_engine(matching_engine),
@@ -37,4 +37,4 @@ void OrderBook::cancel(UserId user_id, OrderId order_id, TickerId ticker_id) noe
     // Implementation for canceling an order from the order book
 }
 
-}  // namespace book
+}  // namespace exchange

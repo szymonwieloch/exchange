@@ -3,7 +3,7 @@
 #include "definitions.h"
 #include "lib/utils/queue.h"
 
-namespace book {
+namespace exchange {
 
 enum class RequestType : uint8_t { INVALID = 0, NEW = 1, CANCEL = 2 };
 
@@ -80,4 +80,4 @@ using ResponseLFQueue = utils::LFQueue<Response>;
 
 // #pragma pack(push, 1)
 
-}  // namespace book
+}  // namespace exchange

@@ -6,7 +6,7 @@
 #include "md.h"
 #include "request.h"
 
-namespace book {
+namespace exchange {
 class MatchingEngine final {
 public:
     MatchingEngine(RequestLFQueue *user_requests, ResponseLFQueue *user_responses,
@@ -37,4 +37,4 @@ private:
     utils::Logger logger;
 };
 
-}  // namespace book
+}  // namespace exchange

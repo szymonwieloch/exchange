@@ -1,6 +1,6 @@
 #pragma once
 
-namespace book {
+namespace exchange {
 
 enum class MDUpdateType : uint8_t { INVALID = 0, ADD = 1, MODIFY = 2, CANCEL = 3, TRADE = 4 };
 
@@ -16,4 +16,4 @@ struct MDUpdate {
 
 using MDLFQueue = utils::LFQueue<MDUpdate>;
 
-}  // namespace book
+}  // namespace exchange

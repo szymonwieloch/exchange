@@ -4,7 +4,7 @@
 #include "lib/utils/log.h"
 #include "lib/utils/mem.h"
 
-namespace book {
+namespace exchange {
 struct Order {
     TickerId ticker_id = TickerId::INVALID;
     UserId client_id = UserId::INVALID;
@@ -94,4 +94,4 @@ private:
 
 typedef std::array<OrderBook *, ME_MAX_TICKERS> OrderBookHashMap;
 
-}  // namespace book
+}  // namespace exchange

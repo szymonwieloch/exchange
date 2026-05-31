@@ -17,8 +17,8 @@ add_executable(exchange_tests
     test_mempool.cpp
     test_queue.cpp
     test_thread.cpp
-    ${PROJECT_SOURCE_DIR}/src/lib/book/engine.cpp
-    ${PROJECT_SOURCE_DIR}/src/lib/book/book.cpp
+    ${PROJECT_SOURCE_DIR}/src/lib/exchange/engine.cpp
+    ${PROJECT_SOURCE_DIR}/src/lib/exchange/book.cpp
 )
 
 target_include_directories(exchange_tests PRIVATE

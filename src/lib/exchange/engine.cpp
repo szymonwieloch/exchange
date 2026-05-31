@@ -1,6 +1,6 @@
 #include "engine.h"
 
-namespace book {
+namespace exchange {
 MatchingEngine::MatchingEngine(RequestLFQueue *client_requests, ResponseLFQueue *client_responses,
                                MDLFQueue *market_updates)
     : incoming_requests(client_requests),
@@ -71,4 +71,4 @@ void MatchingEngine::sendResponse(const Response &response) noexcept {
     (void)response;
 }
 
-}  // namespace book
+}  // namespace exchange
