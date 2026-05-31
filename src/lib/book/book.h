@@ -1,6 +1,8 @@
 #pragma once
 
 #include "definitions.h"
+#include "lib/utils/log.h"
+#include "lib/utils/mem.h"
 
 namespace book {
 struct Order {
@@ -54,5 +56,48 @@ struct OrdersAtPrice {
 };
 
 using OrdersAtPriceMap = std::array<OrdersAtPrice *, ME_MAX_PRICE_LEVELS>;
+
+class MatchingEngine;
+
+class OrderBook final {
+public:
+    OrderBook(TickerId ticker_id, utils::Logger *logger, MatchingEngine *matching_engine)
+        : ticker_id(ticker_id),
+          matching_engine(matching_engine),
+          orders_at_price_pool(ME_MAX_PRICE_LEVELS),
+          order_pool(ME_MAX_ORDER_IDS),
+          logger(logger) {}
+    ~OrderBook() {
+        // logger->log("%:% %() % OrderBook\n%\n", __FILE__, __LINE__, __FUNCTION__,
+        //             utils::getCurrentTimeStr(&time_str), toString(false, true));
+        matching_engine = nullptr;
+        bids_by_price = asks_by_price = nullptr;
+        // for (auto &itr : cid_oid_to_order) {
+        //     itr.fill(nullptr);
+        // }
+    }
+    OrderBook() = delete;
+    OrderBook(const OrderBook &) = delete;
+    OrderBook(const OrderBook &&) = delete;
+    OrderBook &operator=(const OrderBook &) = delete;
+    OrderBook &operator=(const OrderBook &&) = delete;
+
+private:
+    TickerId ticker_id = TickerId_INVALID;
+    MatchingEngine *matching_engine = nullptr;
+    OrderMap cid_oid_to_order;
+    utils::MemPool<OrdersAtPrice> orders_at_price_pool;
+    OrdersAtPrice *bids_by_price = nullptr;
+    OrdersAtPrice *asks_by_price = nullptr;
+    OrdersAtPriceMap price_orders_at_price;
+    utils::MemPool<Order> order_pool;
+    // ClientResponse client_response;
+    // MarketUpdate market_update;
+    OrderId next_market_order_id = 1;
+    std::string time_str;
+    utils::Logger *logger = nullptr;
+};
+
+typedef std::array<OrderBook *, ME_MAX_TICKERS> OrderBookHashMap;
 
 }  // namespace book

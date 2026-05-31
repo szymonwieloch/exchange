@@ -3,7 +3,7 @@ add_executable(exchange main.cpp)
 
 # Library
 add_library(exchange_lib STATIC
-    lib/calculator.cpp
+    lib/book/engine.cpp
 )
 
 target_include_directories(exchange_lib PUBLIC

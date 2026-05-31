@@ -12,8 +12,9 @@ public:
     MatchingEngine(RequestLFQueue *user_requests, ResponseLFQueue *user_responses,
                    MDLFQueue *market_updates);
     ~MatchingEngine();
-    auto start() -> void;
-    auto stop() -> void;
+    void start();
+    void stop();
+    void processClientRequest(const Request *client_request) noexcept;
 
     // Deleted default, copy & move constructors and
     // assignment-operators.
@@ -24,11 +25,13 @@ public:
     MatchingEngine &operator=(const MatchingEngine &&) = delete;
 
 private:
-    OrderMap ticker_order_book;
+    void run() noexcept;
+
+    std::array<OrderBook *, ME_MAX_TICKERS> ticker_order_book;
     RequestLFQueue *incoming_requests = nullptr;
     ResponseLFQueue *outgoing_ogw_responses = nullptr;
     MDLFQueue *outgoing_md_updates = nullptr;
-    volatile bool run = false;
+    volatile bool is_running = false;
     std::string time_str;
     utils::Logger logger;
 };
