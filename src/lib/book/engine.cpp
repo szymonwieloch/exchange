@@ -9,7 +9,7 @@ MatchingEngine::MatchingEngine(RequestLFQueue *client_requests, ResponseLFQueue 
       logger("exchange_matching_engine.log") {
     for (size_t i = 0; i < ticker_order_book.size(); ++i) {
         ticker_order_book[i] =
-            new OrderBook(TickerId{static_cast<std::uint16_t>(i)}, &logger, this);
+            std::make_unique<OrderBook>(TickerId{static_cast<std::uint16_t>(i)}, &logger, this);
     }
 }
 
@@ -20,10 +20,6 @@ MatchingEngine::~MatchingEngine() {
     incoming_requests = nullptr;
     outgoing_ogw_responses = nullptr;
     outgoing_md_updates = nullptr;
-    for (auto &order_book : ticker_order_book) {
-        delete order_book;
-        order_book = nullptr;
-    }
 }
 
 void MatchingEngine::start() {
@@ -53,17 +49,17 @@ void MatchingEngine::run() noexcept {
 }
 
 void MatchingEngine::processClientRequest(const Request *client_request) noexcept {
-    auto order_book = ticker_order_book[type_safe::get(client_request->ticker_id)];
+    auto &order_book = *ticker_order_book[type_safe::get(client_request->ticker_id)];
     switch (client_request->type) {
         case RequestType::NEW: {
-            order_book->add(client_request->user_id, client_request->order_id,
-                            client_request->ticker_id, client_request->side, client_request->price,
-                            client_request->qty);
+            order_book.add(client_request->user_id, client_request->order_id,
+                           client_request->ticker_id, client_request->side, client_request->price,
+                           client_request->qty);
 
         } break;
         case RequestType::CANCEL: {
-            order_book->cancel(client_request->user_id, client_request->order_id,
-                               client_request->ticker_id);
+            order_book.cancel(client_request->user_id, client_request->order_id,
+                              client_request->ticker_id);
         } break;
         default: {
             utils::die("Received invalid request-type");

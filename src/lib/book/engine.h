@@ -28,7 +28,7 @@ public:
 private:
     void run() noexcept;
 
-    std::array<OrderBook *, ME_MAX_TICKERS> ticker_order_book;
+    std::array<std::unique_ptr<OrderBook>, ME_MAX_TICKERS> ticker_order_book;
     RequestLFQueue *incoming_requests = nullptr;
     ResponseLFQueue *outgoing_ogw_responses = nullptr;
     MDLFQueue *outgoing_md_updates = nullptr;
