@@ -36,6 +36,42 @@ struct Response {
     Price price = Price_INVALID;
     Quantity exec_qty = Quantity_INVALID;
     Quantity leaves_qty = Quantity_INVALID;
+
+    static Response accepted(UserId user_id, TickerId ticker_id, OrderId order_id,
+                             OrderId market_order_id, Side side, Price price,
+                             Quantity qty) noexcept {
+        return Response{.type = ResponseType::ACCEPTED,
+                        .user_id = user_id,
+                        .ticker_id = ticker_id,
+                        .order_id = order_id,
+                        .market_order_id = market_order_id,
+                        .side = side,
+                        .price = price,
+                        .exec_qty = 0,
+                        .leaves_qty = qty};
+    }
+
+    static Response canceled(UserId user_id, TickerId ticker_id, OrderId order_id,
+                             OrderId market_order_id, Side side, Price price,
+                             Quantity qty) noexcept {
+        return Response{.type = ResponseType::CANCELED,
+                        .user_id = user_id,
+                        .ticker_id = ticker_id,
+                        .order_id = order_id,
+                        .market_order_id = market_order_id,
+                        .side = side,
+                        .price = price,
+                        .leaves_qty = qty};
+    }
+
+    static Response cancelRejected(UserId user_id, TickerId ticker_id, OrderId order_id) {
+        return Response{
+            .type = ResponseType::CANCEL_REJECTED,
+            .user_id = user_id,
+            .ticker_id = ticker_id,
+            .order_id = order_id,
+        };
+    }
 };
 
 // TODO #pragma pack(pop)

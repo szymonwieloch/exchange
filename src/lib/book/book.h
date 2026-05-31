@@ -61,21 +61,15 @@ class MatchingEngine;
 
 class OrderBook final {
 public:
-    OrderBook(TickerId ticker_id, utils::Logger *logger, MatchingEngine *matching_engine)
-        : ticker_id(ticker_id),
-          matching_engine(matching_engine),
-          orders_at_price_pool(ME_MAX_PRICE_LEVELS),
-          order_pool(ME_MAX_ORDER_IDS),
-          logger(logger) {}
-    ~OrderBook() {
-        // logger->log("%:% %() % OrderBook\n%\n", __FILE__, __LINE__, __FUNCTION__,
-        //             utils::getCurrentTimeStr(&time_str), toString(false, true));
-        matching_engine = nullptr;
-        bids_by_price = asks_by_price = nullptr;
-        // for (auto &itr : cid_oid_to_order) {
-        //     itr.fill(nullptr);
-        // }
-    }
+    OrderBook(TickerId ticker_id, utils::Logger *logger, MatchingEngine *matching_engine);
+    ~OrderBook();
+    void add(UserId client_id, OrderId order_id, TickerId ticker_id, Side side, Price price,
+             Quantity qty) noexcept;
+    void cancel(UserId client_id, OrderId order_id, TickerId ticker_id) noexcept;
+
+    OrderId generateNewMarketOrderId() noexcept { return next_market_order_id++; }
+
+    // Deleted default, copy & move constructors and assignment-operators.
     OrderBook() = delete;
     OrderBook(const OrderBook &) = delete;
     OrderBook(const OrderBook &&) = delete;

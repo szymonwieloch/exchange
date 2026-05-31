@@ -18,6 +18,7 @@ add_executable(exchange_tests
     test_queue.cpp
     test_thread.cpp
     ${PROJECT_SOURCE_DIR}/src/lib/book/engine.cpp
+    ${PROJECT_SOURCE_DIR}/src/lib/book/book.cpp
 )
 
 target_include_directories(exchange_tests PRIVATE

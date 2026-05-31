@@ -4,6 +4,7 @@ add_executable(exchange main.cpp)
 # Library
 add_library(exchange_lib STATIC
     lib/book/engine.cpp
+    lib/book/book.cpp
 )
 
 target_include_directories(exchange_lib PUBLIC

@@ -5,7 +5,7 @@
 #include <string_view>
 
 namespace utils {
-[[noreturn]] void die(std::string_view message, int exit_code = 1) {
+[[noreturn]] inline void die(std::string_view message, int exit_code = 1) {
     std::cerr << message << std::endl;
     std::exit(exit_code);
 }
