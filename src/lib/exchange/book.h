@@ -33,9 +33,17 @@ struct Order {
           next_order(next_order) {}
 };
 
-using OrderMap = std::array<Order *, ME_MAX_ORDER_IDS>;
-using UserOrderHashMap = std::array<OrderMap, ME_MAX_NUM_CLIENTS>;
+// TODO
+// Maps user to their orders.
+class UserOrderHashMap {
+public:
+private:
+    using OrderMap = std::array<Order *, ME_MAX_ORDER_IDS>;
+    std::array<OrderMap, ME_MAX_NUM_CLIENTS> user_to_orders;
+};
 
+// TODO: provide abstraction for a non-owning linked list element, which can be used for both
+// OrdersAtPrice and OrderBook.
 struct OrdersAtPrice {
     OrdersAtPrice() = default;
 
@@ -54,7 +62,36 @@ struct OrdersAtPrice {
     OrdersAtPrice *next_entry = nullptr;
 };
 
-using OrdersAtPriceMap = std::array<OrdersAtPrice *, ME_MAX_PRICE_LEVELS>;
+// Maps price to OrdersAtPrice. We can have multiple OrdersAtPrice for the same price, but they will
+// be stored in a linked list. We use a hash map to get to the head of the linked list in O(1) time.
+// The linked list is needed to handle hash collisions, which are inevitable given that we have a
+// fixed size hash map and a potentially unbounded number of price levels.
+class OrdersAtPriceHashMap {
+public:
+    OrdersAtPriceHashMap() { price_to_orders_at_price.fill(nullptr); }
+
+    OrdersAtPriceHashMap(const OrdersAtPriceHashMap &) = delete;
+    OrdersAtPriceHashMap(const OrdersAtPriceHashMap &&) = delete;
+    OrdersAtPriceHashMap &operator=(const OrdersAtPriceHashMap &) = delete;
+    OrdersAtPriceHashMap &operator=(const OrdersAtPriceHashMap &&) = delete;
+
+    OrdersAtPrice *find(Price price) const noexcept {
+        auto curr = price_to_orders_at_price.at(priceToIndex(price));
+        while (curr) {
+            if (curr->price == price) {
+                return curr;
+            }
+            curr = curr->next_entry;
+        }
+        return nullptr;
+    }
+
+private:
+    std::size_t priceToIndex(Price price) const noexcept {
+        return (type_safe::get(price) % ME_MAX_PRICE_LEVELS);
+    }
+    std::array<OrdersAtPrice *, ME_MAX_PRICE_LEVELS> price_to_orders_at_price;
+};
 
 class MatchingEngine;
 
@@ -76,21 +113,13 @@ public:
     OrderBook &operator=(const OrderBook &&) = delete;
 
 private:
-    std::size_t priceToIndex(Price price) const noexcept {
-        return (type_safe::get(price) % ME_MAX_PRICE_LEVELS);
-    }
-
-    OrdersAtPrice *getOrdersAtPrice(Price price) const noexcept {
-        return price_orders_at_price.at(priceToIndex(price));
-    }
-
     TickerId ticker_id = TickerId::INVALID;
     MatchingEngine *matching_engine = nullptr;
-    OrderMap cid_oid_to_order;
+    // OrderMap cid_oid_to_order;
     utils::MemPool<OrdersAtPrice> orders_at_price_pool;
     OrdersAtPrice *bids_by_price = nullptr;
     OrdersAtPrice *asks_by_price = nullptr;
-    OrdersAtPriceMap price_orders_at_price;
+    OrdersAtPriceHashMap price_orders_at_price;
     utils::MemPool<Order> order_pool;
     // ClientResponse client_response;
     // MarketUpdate market_update;
@@ -99,6 +128,26 @@ private:
     utils::Logger *logger = nullptr;
 };
 
-typedef std::array<OrderBook *, ME_MAX_TICKERS> OrderBookHashMap;
+/// Maps ticker to OrderBook.
+class OrderBookHashMap final {
+public:
+    OrderBookHashMap(utils::Logger *logger, MatchingEngine *matching_engine) {
+        for (size_t i = 0; i < ticker_to_order_book.size(); ++i) {
+            ticker_to_order_book[i] = std::make_unique<OrderBook>(
+                TickerId{static_cast<std::uint16_t>(i)}, logger, matching_engine);
+        }
+    }
+    OrderBookHashMap(const OrderBookHashMap &) = delete;
+    OrderBookHashMap(const OrderBookHashMap &&) = delete;
+    OrderBookHashMap &operator=(const OrderBookHashMap &) = delete;
+    OrderBookHashMap &operator=(const OrderBookHashMap &&) = delete;
+
+    OrderBook *find(TickerId ticker_id) const noexcept {
+        return ticker_to_order_book.at(type_safe::get(ticker_id)).get();
+    }
+
+private:
+    std::array<std::unique_ptr<OrderBook>, ME_MAX_TICKERS> ticker_to_order_book;
+};
 
 }  // namespace exchange

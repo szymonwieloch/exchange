@@ -28,13 +28,13 @@ public:
 private:
     void run() noexcept;
 
-    std::array<std::unique_ptr<OrderBook>, ME_MAX_TICKERS> ticker_order_book;
     RequestLFQueue *incoming_requests = nullptr;
     ResponseLFQueue *outgoing_ogw_responses = nullptr;
     MDLFQueue *outgoing_md_updates = nullptr;
     volatile bool is_running = false;
     std::string time_str;
     utils::Logger logger;
+    OrderBookHashMap ticker_order_book;
 };
 
 }  // namespace exchange
