@@ -167,8 +167,24 @@ Priority OrderBook::getNextPriority(Price price) noexcept {
 }
 
 void OrderBook::addOrder(Order* order) noexcept {
-    (void)order;
-    // TODO: implement order insertion into the book
+    const auto at_price = orders_at_price.find(order->price);
+    if (!at_price) {
+        order->next_order = order->prev_order = order;
+        auto new_orders_at_price =
+            orders_at_price_pool.allocate(order->side, order->price, order, nullptr, nullptr);
+        (void)new_orders_at_price;
+        // addOrdersAtPrice(new_orders_at_price);
+    }
+
+    else {
+        auto first_order = (at_price ? at_price->first_order : nullptr);
+        first_order->prev_order->next_order = order;
+        order->prev_order = first_order->prev_order;
+        order->next_order = first_order;
+        first_order->prev_order = order;
+    }
+
+    // cid_oid_to_order.at(order->user_id).at(order->order_id) = order;
 }
 
 void OrderBook::removeOrder(Order* order) noexcept {
