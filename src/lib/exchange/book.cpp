@@ -35,6 +35,52 @@ void OrderBook::cancel(UserId user_id, OrderId order_id, TickerId ticker_id) noe
     (void)order_id;
     (void)ticker_id;
     // Implementation for canceling an order from the order book
+
+    //     auto is_cancelable = (client_id <
+    // cid_oid_to_order_.size());
+    // MEOrder *exchange_order = nullptr;
+    // if (LIKELY(is_cancelable)) {
+    // auto &co_itr = cid_oid_to_order_.at(client_id);
+    // exchange_order = co_itr.at(order_id);
+    // is_cancelable = (exchange_order != nullptr);
+    // }
+
+    auto order = user_orders.find(user_id, order_id);
+    if (!order) [[unlikely]] {
+        // If the order is not found, we generate an MEClientResponse message of type
+        // ClientResponseType::CANCEL_REJECTED to notify the matching engine:
+        Response response = Response::cancelRejected(user_id, ticker_id, order_id);
+        matching_engine->sendResponse(response);
+        return;
+    }
+    // TODO: removeOrder implementation is WIP
+    // removeOrder(order);
+    auto response = Response::canceled(user_id, ticker_id, order_id, order->market_order_id,
+                                       order->side, order->price, order->qty);
+    matching_engine->sendResponse(response);
+
+    // market_update_ = {MarketUpdateType::CANCEL,
+    // exchange_order->market_order_id_, ticker_id,
+    // exchange_order->side_, exchange_order->price_, 0,
+    // exchange_order->priority_};
+
+    // matching_engine_->sendMarketUpdate(&market_update_);
 }
+
+// TODO: WIP — needs to be updated to match current Order struct and class members
+// void OrderBook::removeOrder(Order* order) noexcept {
+//     auto level = price_orders_at_price.find(order->price);
+//     if (order->prev_order == order) {  // only one element.
+//         // TODO: remove from price_orders_at_price linked list
+//     } else {
+//         const auto order_before = order->prev_order;
+//         const auto order_after = order->next_order;
+//         order_before->next_order = order_after;
+//         order_after->prev_order = order_before;
+//         order->prev_order = order->next_order = nullptr;
+//     }
+//     user_orders.remove(order);
+//     order_pool.deallocate(order);
+// }
 
 }  // namespace exchange

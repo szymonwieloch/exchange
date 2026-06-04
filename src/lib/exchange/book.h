@@ -33,12 +33,43 @@ struct Order {
           next_order(next_order) {}
 };
 
-// TODO
-// Maps user to their orders.
+class OrderMap {
+public:
+    OrderMap() { orders.fill(nullptr); }
+
+    OrderMap(const OrderMap &) = delete;
+    OrderMap(const OrderMap &&) = delete;
+    OrderMap &operator=(const OrderMap &) = delete;
+    OrderMap &operator=(const OrderMap &&) = delete;
+
+    Order *find(OrderId order_id) const noexcept {
+        if (type_safe::get(order_id) >= orders.size()) [[unlikely]] {
+            return nullptr;
+        }
+        return orders[type_safe::get(order_id)];
+    }
+
+private:
+    std::array<Order *, ME_MAX_ORDERS_PER_USER> orders;
+};
+
 class UserOrderHashMap {
 public:
+    UserOrderHashMap() = default;
+
+    UserOrderHashMap(const UserOrderHashMap &) = delete;
+    UserOrderHashMap(const UserOrderHashMap &&) = delete;
+    UserOrderHashMap &operator=(const UserOrderHashMap &) = delete;
+    UserOrderHashMap &operator=(const UserOrderHashMap &&) = delete;
+
+    Order *find(UserId user_id, OrderId order_id) const noexcept {
+        if (type_safe::get(user_id) >= user_to_orders.size()) [[unlikely]] {
+            return nullptr;
+        }
+        return user_to_orders[type_safe::get(user_id)].find(order_id);
+    }
+
 private:
-    using OrderMap = std::array<Order *, ME_MAX_ORDER_IDS>;
     std::array<OrderMap, ME_MAX_NUM_CLIENTS> user_to_orders;
 };
 
@@ -120,6 +151,7 @@ private:
     OrdersAtPrice *bids_by_price = nullptr;
     OrdersAtPrice *asks_by_price = nullptr;
     OrdersAtPriceHashMap price_orders_at_price;
+    UserOrderHashMap user_orders;
     utils::MemPool<Order> order_pool;
     // ClientResponse client_response;
     // MarketUpdate market_update;
