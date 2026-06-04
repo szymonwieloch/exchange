@@ -5,6 +5,10 @@
 #include "lib/utils/mem.h"
 
 namespace exchange {
+
+/// The main order representation
+/// Uses sentinels for invalid values, so that we can avoid using std::optional and the associated
+/// overhead.
 struct Order {
     TickerId ticker_id = TickerId::INVALID;
     UserId client_id = UserId::INVALID;
@@ -33,6 +37,13 @@ struct Order {
           next_order(next_order) {}
 };
 
+/// User order ID to Order mapping.
+/// We use a fixed size array to store the orders for each user, which allows us to get an order in
+/// O(1) time. The order ID is used as the index in the array. We use a fixed size array instead of
+/// a hash map because we want to avoid the overhead of hashing and dynamic memory allocation.
+// The maximum number of orders per user is defined by ME_MAX_ORDERS_PER_USER, which is a
+// compile-time constant. If a user tries to place more than ME_MAX_ORDERS_PER_USER orders, we will
+// reject the order and send a cancel rejected response to the matching engine.
 class OrderMap {
 public:
     OrderMap() { orders.fill(nullptr); }
@@ -53,6 +64,9 @@ private:
     std::array<Order *, ME_MAX_ORDERS_PER_USER> orders;
 };
 
+/// Maps user ID and user-specific order ID to Order.
+/// Retrieves the Order in O(1) time, but has a fixed maximum number of users and orders per user,
+/// defined by ME_MAX_NUM_CLIENTS and ME_MAX_ORDERS_PER_USER respectively.
 class UserOrderHashMap {
 public:
     UserOrderHashMap() = default;
@@ -75,6 +89,10 @@ private:
 
 // TODO: provide abstraction for a non-owning linked list element, which can be used for both
 // OrdersAtPrice and OrderBook.
+
+/// Represents a price level in the order book, which can have multiple orders at the same price.
+/// Implemented using linked list to allow for efficient insertion and deletion of orders at the
+/// same price level.
 struct OrdersAtPrice {
     OrdersAtPrice() = default;
 
