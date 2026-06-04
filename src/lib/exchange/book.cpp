@@ -188,8 +188,21 @@ void OrderBook::addOrder(Order* order) noexcept {
 }
 
 void OrderBook::removeOrder(Order* order) noexcept {
-    (void)order;
-    // TODO: implement order removal from the book
+    auto orders_at_price = this->orders_at_price.find(order->price);
+    if (order->prev_order == order) {  // only one element.
+        removeOrdersAtPrice(order->side, order->price);
+    } else {  // remove the link.
+        const auto order_before = order->prev_order;
+        const auto order_after = order->next_order;
+        order_before->next_order = order_after;
+        order_after->prev_order = order_before;
+        if (orders_at_price->first_order == order) {
+            orders_at_price->first_order = order_after;
+        }
+        order->prev_order = order->next_order = nullptr;
+    }
+    // cid_oid_to_order_.at(order->client_id_).at(order->client_order_id_) = nullptr;
+    order_pool.deallocate(order);
 }
 
 void OrderBook::addOrdersAtPrice(OrdersAtPrice* new_orders_at_price) noexcept {
@@ -253,6 +266,23 @@ void OrderBook::addOrdersAtPrice(OrdersAtPrice* new_orders_at_price) noexcept {
             }
         }
     }
+}
+
+void OrderBook::removeOrdersAtPrice(Side side, Price price) noexcept {
+    const auto best_orders_by_price = (side == Side::BUY ? bids_by_price : asks_by_price);
+    auto orders_at_price = this->orders_at_price.find(price);
+    if (orders_at_price->next_entry == orders_at_price) [[unlikely]] {  // empty side of book.
+        (side == Side::BUY ? bids_by_price : asks_by_price) = nullptr;
+    } else {
+        orders_at_price->prev_entry->next_entry = orders_at_price->next_entry;
+        orders_at_price->next_entry->prev_entry = orders_at_price->prev_entry;
+        if (orders_at_price == best_orders_by_price) {
+            (side == Side::BUY ? bids_by_price : asks_by_price) = orders_at_price->next_entry;
+        }
+        orders_at_price->prev_entry = orders_at_price->next_entry = nullptr;
+    }
+    this->orders_at_price.clear(price);
+    orders_at_price_pool.deallocate(orders_at_price);
 }
 
 }  // namespace exchange

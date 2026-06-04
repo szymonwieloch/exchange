@@ -139,6 +139,8 @@ public:
         price_to_orders_at_price.at(priceToIndex(entry->price)) = entry;
     }
 
+    void clear(Price price) noexcept { price_to_orders_at_price.at(priceToIndex(price)) = nullptr; }
+
 private:
     std::size_t priceToIndex(Price price) const noexcept {
         return (type_safe::get(price) % ME_MAX_PRICE_LEVELS);
@@ -174,6 +176,7 @@ private:
     void match(TickerId ticker_id, UserId user_id, Side side, OrderId client_order_id,
                OrderId new_market_order_id, Order *itr, Quantity *leaves_qty) noexcept;
     void addOrdersAtPrice(OrdersAtPrice *new_orders_at_price) noexcept;
+    void removeOrdersAtPrice(Side side, Price price) noexcept;
 
     TickerId ticker_id = TickerId::INVALID;
     MatchingEngine *matching_engine = nullptr;
