@@ -72,6 +72,20 @@ struct Response {
             .order_id = order_id,
         };
     }
+
+    static Response filled(UserId user_id, TickerId ticker_id, OrderId order_id,
+                           OrderId market_order_id, Side side, Price price, Quantity exec_qty,
+                           Quantity leaves_qty) noexcept {
+        return Response{.type = ResponseType::FILLED,
+                        .user_id = user_id,
+                        .ticker_id = ticker_id,
+                        .order_id = order_id,
+                        .market_order_id = market_order_id,
+                        .side = side,
+                        .price = price,
+                        .exec_qty = exec_qty,
+                        .leaves_qty = leaves_qty};
+    }
 };
 
 // TODO #pragma pack(pop)

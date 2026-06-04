@@ -68,4 +68,9 @@ void MatchingEngine::sendResponse(const Response &response) noexcept {
     outgoing_ogw_responses->updateWriteIndex();
 }
 
+void MatchingEngine::sendMarketUpdate(const MDUpdate &market_update) noexcept {
+    *outgoing_md_updates->getNextToWriteTo() = market_update;
+    outgoing_md_updates->updateWriteIndex();
+}
+
 }  // namespace exchange

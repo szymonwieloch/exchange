@@ -135,39 +135,26 @@ void OrderBook::match(TickerId ticker_id, UserId user_id, Side side, OrderId cli
     *leaves_qty -= fill_qty;
     order->qty -= fill_qty;
 
-    matching_engine->sendResponse(Response{ResponseType::FILLED, user_id, ticker_id,
-                                           client_order_id, new_market_order_id, side, itr->price,
-                                           fill_qty, *leaves_qty});
+    matching_engine->sendResponse(Response::filled(user_id, ticker_id, client_order_id,
+                                                   new_market_order_id, side, itr->price, fill_qty,
+                                                   *leaves_qty));
 
-    matching_engine->sendResponse(Response{ResponseType::FILLED, order->client_id, ticker_id,
-                                           order->order_id, order->market_order_id, order->side,
-                                           itr->price, fill_qty, order->qty});
+    matching_engine->sendResponse(Response::filled(order->client_id, ticker_id, order->order_id,
+                                                   order->market_order_id, order->side, itr->price,
+                                                   fill_qty, order->qty));
 
-    // auto market_update = {
-    //     MarketUpdateType::TRADE, OrderId_INVALID, ticker_id, side, itr->price, fill_qty,
-    //     Priority_INVALID};
-    // matching_engine->sendMarketUpdate(market_update);
+    auto market_update = MDUpdate::trade(ticker_id, side, itr->price, fill_qty);
+    matching_engine->sendMarketUpdate(market_update);
 
     if (order->qty == Quantity{0}) {
-        // auto market_update = MarketUpdate{MarketUpdateType::CANCEL,
-        //                                   order->market_order_id,
-        //                                   ticker_id,
-        //                                   order->side,
-        //                                   order->price,
-        //                                   order_qty,
-        //                                   Priority_INVALID};
-        // matching_engine->sendMarketUpdate(&market_update);
+        auto market_update = MDUpdate::cancel(order->market_order_id, ticker_id, order->side,
+                                              order->price, order_qty);
+        matching_engine->sendMarketUpdate(market_update);
         removeOrder(order);
-
     } else {
-        // auto market_update = {MarketUpdateType::MODIFY,
-        //                       order->market_order_id,
-        //                       ticker_id,
-        //                       order->side,
-        //                       order->price,
-        //                       order->qty,
-        //                       order->priority};
-        // matching_engine->sendMarketUpdate(&market_update);
+        auto market_update = MDUpdate::modify(order->market_order_id, ticker_id, order->side,
+                                              order->price, order->qty, order->priority);
+        matching_engine->sendMarketUpdate(market_update);
     }
 }
 
