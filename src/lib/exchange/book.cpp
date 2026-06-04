@@ -192,4 +192,67 @@ void OrderBook::removeOrder(Order* order) noexcept {
     // TODO: implement order removal from the book
 }
 
+void OrderBook::addOrdersAtPrice(OrdersAtPrice* new_orders_at_price) noexcept {
+    orders_at_price.insert(new_orders_at_price);
+
+    const auto best_orders_by_price =
+        (new_orders_at_price->side == Side::BUY ? bids_by_price : asks_by_price);
+
+    if (!best_orders_by_price) [[unlikely]] {
+        (new_orders_at_price->side == Side::BUY ? bids_by_price : asks_by_price) =
+            new_orders_at_price;
+        new_orders_at_price->prev_entry = new_orders_at_price->next_entry = new_orders_at_price;
+    }
+
+    else {
+        auto target = best_orders_by_price;
+        bool add_after = ((new_orders_at_price->side == Side::SELL &&
+                           new_orders_at_price->price > target->price) ||
+                          (new_orders_at_price->side == Side::BUY &&
+                           new_orders_at_price->price < target->price));
+        if (add_after) {
+            target = target->next_entry;
+            add_after = ((new_orders_at_price->side == Side::SELL &&
+                          new_orders_at_price->price > target->price) ||
+                         (new_orders_at_price->side == Side::BUY &&
+                          new_orders_at_price->price < target->price));
+        }
+        while (add_after && target != best_orders_by_price) {
+            add_after = ((new_orders_at_price->side == Side::SELL &&
+                          new_orders_at_price->price > target->price) ||
+                         (new_orders_at_price->side == Side::BUY &&
+                          new_orders_at_price->price < target->price));
+            if (add_after)
+                target = target->next_entry;
+        }
+
+        if (add_after) {  // add new_orders_at_price after
+                          // target.
+            if (target == best_orders_by_price) {
+                target = best_orders_by_price->prev_entry;
+            }
+            new_orders_at_price->prev_entry = target;
+            target->next_entry->prev_entry = new_orders_at_price;
+            new_orders_at_price->next_entry = target->next_entry;
+            target->next_entry = new_orders_at_price;
+        } else {  // add new_orders_at_price before target.
+            new_orders_at_price->prev_entry = target->prev_entry;
+            new_orders_at_price->next_entry = target;
+            target->prev_entry->next_entry = new_orders_at_price;
+            target->prev_entry = new_orders_at_price;
+
+            if ((new_orders_at_price->side == Side::BUY &&
+                 new_orders_at_price->price > best_orders_by_price->price) ||
+                (new_orders_at_price->side == Side::SELL &&
+                 new_orders_at_price->price < best_orders_by_price->price)) {
+                target->next_entry =
+                    (target->next_entry == best_orders_by_price ? new_orders_at_price
+                                                                : target->next_entry);
+                (new_orders_at_price->side == Side::BUY ? bids_by_price : asks_by_price) =
+                    new_orders_at_price;
+            }
+        }
+    }
+}
+
 }  // namespace exchange
