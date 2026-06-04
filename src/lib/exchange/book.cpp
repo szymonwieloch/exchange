@@ -27,7 +27,23 @@ void OrderBook::add(UserId user_id, OrderId order_id, TickerId ticker_id, Side s
     auto response =
         Response::accepted(user_id, ticker_id, order_id, new_market_order_id, side, price, qty);
     matching_engine->sendResponse(response);
-    // Implementation for adding an order to the order book
+    const auto leaves_qty =
+        checkForMatch(user_id, order_id, ticker_id, side, price, qty, new_market_order_id);
+
+    if (leaves_qty != Quantity{0}) [[likely]] {
+        const auto priority = getNextPriority(price);
+        auto order = order_pool.allocate(ticker_id, user_id, order_id, new_market_order_id, side,
+                                         price, leaves_qty, priority, nullptr, nullptr);
+        addOrder(order);
+        // auto market_update = MarketUpdate{MarketUpdateType::ADD,
+        //                                   new_market_order_id,
+        //                                   ticker_id,
+        //                                   side,
+        //                                   price,
+        //                                   leaves_qty,
+        //                                   priority};
+        // matching_engine->sendMarketUpdate(market_update);
+    }
 }
 
 void OrderBook::cancel(UserId user_id, OrderId order_id, TickerId ticker_id) noexcept {
@@ -38,7 +54,7 @@ void OrderBook::cancel(UserId user_id, OrderId order_id, TickerId ticker_id) noe
 
     //     auto is_cancelable = (client_id <
     // cid_oid_to_order_.size());
-    // MEOrder *exchange_order = nullptr;
+    // Order *exchange_order = nullptr;
     // if (LIKELY(is_cancelable)) {
     // auto &co_itr = cid_oid_to_order_.at(client_id);
     // exchange_order = co_itr.at(order_id);
@@ -82,5 +98,93 @@ void OrderBook::cancel(UserId user_id, OrderId order_id, TickerId ticker_id) noe
 //     user_orders.remove(order);
 //     order_pool.deallocate(order);
 // }
+
+Quantity OrderBook::checkForMatch(UserId user_id, OrderId client_order_id, TickerId ticker_id,
+                                  Side side, Price price, Quantity qty,
+                                  OrderId new_market_order_id) noexcept {
+    auto leaves_qty = qty;
+    if (side == Side::BUY) {
+        while (leaves_qty != Quantity{0} && asks_by_price) {
+            const auto ask_itr = asks_by_price->first_order;
+            if (price < ask_itr->price) [[likely]] {
+                break;
+            }
+            match(ticker_id, user_id, side, client_order_id, new_market_order_id, ask_itr,
+                  &leaves_qty);
+        }
+    }
+
+    if (side == Side::SELL) {
+        while (leaves_qty != Quantity{0} && bids_by_price) {
+            const auto bid_itr = bids_by_price->first_order;
+            if (price > bid_itr->price) [[likely]] {
+                break;
+            }
+            match(ticker_id, user_id, side, client_order_id, new_market_order_id, bid_itr,
+                  &leaves_qty);
+        }
+    }
+    return leaves_qty;
+}
+
+void OrderBook::match(TickerId ticker_id, UserId user_id, Side side, OrderId client_order_id,
+                      OrderId new_market_order_id, Order* itr, Quantity* leaves_qty) noexcept {
+    const auto order = itr;
+    const auto order_qty = order->qty;
+    const auto fill_qty = std::min(*leaves_qty, order_qty);
+    *leaves_qty -= fill_qty;
+    order->qty -= fill_qty;
+
+    matching_engine->sendResponse(Response{ResponseType::FILLED, user_id, ticker_id,
+                                           client_order_id, new_market_order_id, side, itr->price,
+                                           fill_qty, *leaves_qty});
+
+    matching_engine->sendResponse(Response{ResponseType::FILLED, order->client_id, ticker_id,
+                                           order->order_id, order->market_order_id, order->side,
+                                           itr->price, fill_qty, order->qty});
+
+    // auto market_update = {
+    //     MarketUpdateType::TRADE, OrderId_INVALID, ticker_id, side, itr->price, fill_qty,
+    //     Priority_INVALID};
+    // matching_engine->sendMarketUpdate(market_update);
+
+    if (order->qty == Quantity{0}) {
+        // auto market_update = MarketUpdate{MarketUpdateType::CANCEL,
+        //                                   order->market_order_id,
+        //                                   ticker_id,
+        //                                   order->side,
+        //                                   order->price,
+        //                                   order_qty,
+        //                                   Priority_INVALID};
+        // matching_engine->sendMarketUpdate(&market_update);
+        removeOrder(order);
+
+    } else {
+        // auto market_update = {MarketUpdateType::MODIFY,
+        //                       order->market_order_id,
+        //                       ticker_id,
+        //                       order->side,
+        //                       order->price,
+        //                       order->qty,
+        //                       order->priority};
+        // matching_engine->sendMarketUpdate(&market_update);
+    }
+}
+
+Priority OrderBook::getNextPriority(Price price) noexcept {
+    (void)price;
+    // TODO: implement proper priority generation
+    return Priority{0};
+}
+
+void OrderBook::addOrder(Order* order) noexcept {
+    (void)order;
+    // TODO: implement order insertion into the book
+}
+
+void OrderBook::removeOrder(Order* order) noexcept {
+    (void)order;
+    // TODO: implement order removal from the book
+}
 
 }  // namespace exchange

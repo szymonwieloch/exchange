@@ -162,6 +162,14 @@ public:
     OrderBook &operator=(const OrderBook &&) = delete;
 
 private:
+    Priority getNextPriority(Price price) noexcept;
+    void addOrder(Order *order) noexcept;
+    void removeOrder(Order *order) noexcept;
+    Quantity checkForMatch(UserId user_id, OrderId client_order_id, TickerId ticker_id, Side side,
+                           Price price, Quantity qty, OrderId new_market_order_id) noexcept;
+    void match(TickerId ticker_id, UserId user_id, Side side, OrderId client_order_id,
+               OrderId new_market_order_id, Order *itr, Quantity *leaves_qty) noexcept;
+
     TickerId ticker_id = TickerId::INVALID;
     MatchingEngine *matching_engine = nullptr;
     // OrderMap cid_oid_to_order;
