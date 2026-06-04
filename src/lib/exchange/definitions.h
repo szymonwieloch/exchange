@@ -43,6 +43,7 @@ struct Cents : type_safe::strong_typedef<Cents, std::uint64_t>,
 };
 
 struct Priority : type_safe::strong_typedef<Priority, std::uint64_t>,
+                  type_safe::strong_typedef_op::integer_arithmetic<Priority>,
                   type_safe::strong_typedef_op::equality_comparison<Priority>,
                   type_safe::strong_typedef_op::relational_comparison<Priority> {
     using strong_typedef::strong_typedef;

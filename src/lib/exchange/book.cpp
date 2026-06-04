@@ -159,9 +159,11 @@ void OrderBook::match(TickerId ticker_id, UserId user_id, Side side, OrderId cli
 }
 
 Priority OrderBook::getNextPriority(Price price) noexcept {
-    (void)price;
-    // TODO: implement proper priority generation
-    return Priority{0};
+    const auto orders = orders_at_price.find(price);
+    if (!orders) {
+        return Priority{1};
+    }
+    return orders->first_order->prev_order->priority + Priority{1};
 }
 
 void OrderBook::addOrder(Order* order) noexcept {

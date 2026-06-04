@@ -176,11 +176,9 @@ private:
     utils::MemPool<OrdersAtPrice> orders_at_price_pool;
     OrdersAtPrice *bids_by_price = nullptr;
     OrdersAtPrice *asks_by_price = nullptr;
-    OrdersAtPriceHashMap price_orders_at_price;
+    OrdersAtPriceHashMap orders_at_price;
     UserOrderHashMap user_orders;
     utils::MemPool<Order> order_pool;
-    // ClientResponse client_response;
-    // MarketUpdate market_update;
     OrderId next_market_order_id{1};
     std::string time_str;
     utils::Logger *logger = nullptr;
