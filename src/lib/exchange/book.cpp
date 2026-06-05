@@ -142,7 +142,7 @@ void OrderBook::addOrder(Order* order) noexcept {
         first_order->prev = order;
     }
 
-    cid_oid_to_order.insert(order);
+    (void)cid_oid_to_order.insert(order);
 }
 
 void OrderBook::removeOrder(Order* order) noexcept {

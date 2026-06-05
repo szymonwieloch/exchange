@@ -93,9 +93,6 @@ TEST(MemPoolTest, DeallocateAllowsReuse) {
 
 // ── Wrap-around ─────────────────────────────────────────────────
 TEST(MemPoolTest, WrapAroundAfterFullCycle) {
-    // Use 5 slots — allocate 3, deallocate the first 2, then allocate
-    // 2 more. Pool never becomes completely full, avoiding the
-    // infinite-loop bug in updateNextFreeIndex when exhausted.
     MemPool<Payload> pool(5);
 
     auto *obj1 = pool.allocate(1);
@@ -126,24 +123,26 @@ TEST(MemPoolTest, WrapAroundAfterFullCycle) {
     EXPECT_NE(obj5, obj3);
 }
 
-// ── Exhaustion (known limitation) ───────────────────────────────
-TEST(MemPoolTest, ExhaustPoolDoesNotReturnNull) {
-    // Filling the last slot triggers an infinite loop in
-    // updateNextFreeIndex (known bug). This test verifies that
-    // partial fill + deallocate + refill works correctly instead.
-    MemPool<int> pool(4);
+// ── Exhaustion ──────────────────────────────────────────────────
+TEST(MemPoolTest, ExhaustPoolReturnsNull) {
+    MemPool<Payload> pool(3);
     auto *obj1 = pool.allocate(1);
     auto *obj2 = pool.allocate(2);
-    auto *obj3 = pool.allocate(3);  // one slot left free
+    auto *obj3 = pool.allocate(3);
 
-    EXPECT_NE(obj1, nullptr);
-    EXPECT_NE(obj2, nullptr);
-    EXPECT_NE(obj3, nullptr);
+    ASSERT_NE(obj1, nullptr);
+    ASSERT_NE(obj2, nullptr);
+    ASSERT_NE(obj3, nullptr);
 
-    pool.deallocate(obj1);
-    auto *obj4 = pool.allocate(4);  // reuses next free slot
-    EXPECT_NE(obj4, nullptr);
-    EXPECT_EQ(*obj4, 4);
+    // Pool is now full — next allocate should return nullptr.
+    auto *obj4 = pool.allocate(4);
+    EXPECT_EQ(obj4, nullptr);
+
+    // After freeing one slot, allocate succeeds again.
+    pool.deallocate(obj2);
+    auto *obj5 = pool.allocate(5);
+    ASSERT_NE(obj5, nullptr);
+    EXPECT_EQ(obj5->value, 5);
 }
 
 // ── Default-constructible requirement ───────────────────────────
@@ -155,8 +154,6 @@ TEST(MemPoolTest, WorksWithTrivialType) {
 }
 
 TEST(MemPoolTest, DeallocateThenAllocateMultipleTimes) {
-    // Use 2 slots — never fill all slots at once to avoid the
-    // infinite-loop bug in updateNextFreeIndex when the pool is full.
     MemPool<Payload> pool(2);
     for (int i = 0; i < 5; ++i) {
         auto *ptr = pool.allocate(i);
@@ -217,8 +214,6 @@ TEST(MemPoolTest, DestructorCalledOnPoolDestruction) {
         (void)pool.allocate(2);
         (void)pool.allocate(3);
         // Only deallocate one; two remain alive.
-        // Allocate a 4th then immediately free — never fill all 5 slots
-        // to avoid the known exhaustion infinite-loop in updateNextFreeIndex.
         auto *t4 = pool.allocate(4);
         EXPECT_EQ(Tracked::alive, 4);
         pool.deallocate(t4);
@@ -257,4 +252,36 @@ TEST(MemPoolTest, NoDefaultConstruction) {
     // Creating the pool should not call any constructors
     EXPECT_EQ(Tracked::ctor_calls, 0);
     EXPECT_EQ(Tracked::alive, 0);
+}
+
+// ── Allocated count / capacity ─────────────────────────────────
+TEST(MemPoolTest, AllocatedCountTracksInUseObjects) {
+    MemPool<Payload> pool(5);
+    EXPECT_EQ(pool.allocated_count(), 0);
+    EXPECT_EQ(pool.capacity(), 5);
+
+    auto *obj1 = pool.allocate(1);
+    EXPECT_EQ(pool.allocated_count(), 1);
+
+    auto *obj2 = pool.allocate(2);
+    EXPECT_EQ(pool.allocated_count(), 2);
+
+    pool.deallocate(obj1);
+    EXPECT_EQ(pool.allocated_count(), 1);
+
+    pool.deallocate(obj2);
+    EXPECT_EQ(pool.allocated_count(), 0);
+}
+
+TEST(MemPoolTest, AllocatedCountReflectsFullPool) {
+    MemPool<Payload> pool(3);
+    (void)pool.allocate(1);
+    (void)pool.allocate(2);
+    (void)pool.allocate(3);
+    EXPECT_EQ(pool.allocated_count(), 3);
+    EXPECT_EQ(pool.allocated_count(), pool.capacity());
+
+    auto *extra = pool.allocate(4);
+    EXPECT_EQ(extra, nullptr);
+    EXPECT_EQ(pool.allocated_count(), 3);  // count unchanged on failure
 }

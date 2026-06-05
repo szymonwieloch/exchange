@@ -19,8 +19,8 @@ namespace utils {
 /// deallocate().  The pool itself destroys any still-allocated objects on
 /// destruction.
 ///
-/// @warning  The pool asserts (terminates) when all slots are exhausted.
-///           Size the pool conservatively at startup.
+/// When the pool is exhausted (all slots in use), allocate() returns nullptr.
+/// Size the pool conservatively at startup.
 ///
 /// @tparam T  The type stored in the pool. No default-constructibility
 ///            requirement — objects are constructed on demand via placement-new.
@@ -43,10 +43,13 @@ public:
     /// Allocates a slot from the pool and constructs a T in-place.
     ///
     /// @param args  Arguments forwarded to T's constructor via placement-new.
-    /// @return  Pointer to the newly constructed object.
-    /// @pre  At least one free slot must exist (enforced by assert).
+    /// @return  Pointer to the newly constructed object, or nullptr if the
+    ///          pool is exhausted (all slots in use).
     template <typename... Args>
     T *allocate(Args &&...args) noexcept {
+        if (count == store.size()) [[unlikely]] {
+            return nullptr;  // pool exhausted
+        }
         auto &objBlock = store[next_free_index];
         assert(objBlock.is_free);
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
@@ -54,6 +57,7 @@ public:
         // NOLINTNEXTLINE(cppcoreguidelines-owning-memory)
         ret = new (ret) T(std::forward<Args>(args)...);  // placement new
         objBlock.is_free = false;
+        ++count;
         updateNextFreeIndex();
         return ret;
     }
@@ -71,7 +75,14 @@ public:
         // NOLINTNEXTLINE(cppcoreguidelines-owning-memory)
         elem->~T();
         store[elemIndex].is_free = true;
+        --count;
     }
+
+    /// Returns the number of currently allocated (in-use) objects.
+    [[nodiscard]] std::size_t allocated_count() const noexcept { return count; }
+
+    /// Returns the total capacity of the pool.
+    [[nodiscard]] std::size_t capacity() const noexcept { return store.size(); }
 
 private:
     /// Raw aligned storage for a T, paired with a free/in-use flag.
@@ -82,20 +93,20 @@ private:
 
     /// Advances next_free_index to the next free slot, wrapping if necessary.
     ///
-    /// Asserts when no free slot is found (pool exhausted).
+    /// If no free slot exists (pool is full), next_free_index is unchanged.
     auto updateNextFreeIndex() noexcept {
-        [[maybe_unused]] const auto initialFreeIndex = next_free_index;
-        while (!store[next_free_index].is_free) {
+        const auto start = next_free_index;
+        do {
             ++next_free_index;
             if (next_free_index == store.size()) [[unlikely]] {
                 next_free_index = 0;
             }
-        }
-        assert(initialFreeIndex != next_free_index);  // out of space in the pool
+        } while (!store[next_free_index].is_free && next_free_index != start);
     }
 
     std::vector<ObjectBlock> store;
-    size_t next_free_index = 0;
+    std::size_t next_free_index = 0;
+    std::size_t count = 0;
 };
 
 }  // namespace utils

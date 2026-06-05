@@ -12,14 +12,14 @@ namespace exchange {
 // The maximum number of orders per user is defined by MAX_ORDERS_PER_USER, which is a
 // compile-time constant. If a user tries to place more than MAX_ORDERS_PER_USER orders, we
 // will reject the order and send a cancel rejected response to the matching engine.
-class UserOrders : public utils::LinkedList<UserOrders> {
+class UserOrders final : public utils::LinkedList<UserOrders> {
 public:
-    UserOrders(UserId user_id) : user_id(user_id) { orders.fill(nullptr); }
+    explicit UserOrders(UserId user_id) : user_id(user_id) { orders.fill(nullptr); }
 
     UserOrders(const UserOrders &) = delete;
-    UserOrders(const UserOrders &&) = delete;
+    UserOrders(UserOrders &&) = delete;
     UserOrders &operator=(const UserOrders &) = delete;
-    UserOrders &operator=(const UserOrders &&) = delete;
+    UserOrders &operator=(UserOrders &&) = delete;
 
     Order *find(OrderId order_id) const noexcept {
         if (type_safe::get(order_id) >= orders.size()) [[unlikely]] {
@@ -54,16 +54,16 @@ private:
 };
 
 /// Maps user ID and user-specific order ID to Order.
-/// Retrieves the Order in O(1) time, but has a fixed maximum number of users and orders per
-/// user, defined by MAX_NUM_USERS and MAX_ORDERS_PER_USER respectively.
+/// Retrieves the Order in O(1) time, but has a fixed maximum number of active users and orders per
+/// user, defined by MAX_ACTIVE_USERS and MAX_ORDERS_PER_USER respectively.
 class UserOrderHashMap {
 public:
     UserOrderHashMap() = default;
 
     UserOrderHashMap(const UserOrderHashMap &) = delete;
-    UserOrderHashMap(const UserOrderHashMap &&) = delete;
+    UserOrderHashMap(UserOrderHashMap &&) = delete;
     UserOrderHashMap &operator=(const UserOrderHashMap &) = delete;
-    UserOrderHashMap &operator=(const UserOrderHashMap &&) = delete;
+    UserOrderHashMap &operator=(UserOrderHashMap &&) = delete;
 
     Order *find(UserId user_id, OrderId order_id) const noexcept {
         auto uo = findObject(user_id);
@@ -86,10 +86,13 @@ public:
         }
     }
 
-    void insert(Order *order) noexcept {
+    [[nodiscard]] bool insert(Order *order) noexcept {
         auto uo = findObject(order->user_id);
         if (!uo) [[unlikely]] {
             uo = pool.allocate(order->user_id);
+            if (!uo) [[unlikely]] {
+                return false;  // pool exhausted
+            }
             auto idx = hash(order->user_id);
             auto first = user_to_orders[idx];
             if (first) {
@@ -98,11 +101,16 @@ public:
             }
             user_to_orders[idx] = uo;
         }
+        if (uo->full()) [[unlikely]] {
+            return false;
+        }
         uo->insert(order);
+        return true;
     }
 
 private:
-    std::array<UserOrders *, MAX_ACTIVE_USERS> user_to_orders;
+    static constexpr std::size_t SIZE = 256;  // TODO: move to constants
+    std::array<UserOrders *, SIZE> user_to_orders;
     utils::MemPool<UserOrders> pool{MAX_ACTIVE_USERS};
 
     UserOrders *findObject(UserId user_id) const {
