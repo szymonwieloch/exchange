@@ -97,7 +97,7 @@ void OrderBook::match(TickerId ticker_id, UserId user_id, Side side, OrderId cli
                                                    new_market_order_id, side, itr->price, fill_qty,
                                                    *leaves_qty));
 
-    matching_engine->sendResponse(Response::filled(order->client_id, ticker_id, order->order_id,
+    matching_engine->sendResponse(Response::filled(order->user_id, ticker_id, order->order_id,
                                                    order->market_order_id, order->side, itr->price,
                                                    fill_qty, order->qty));
 
@@ -159,7 +159,7 @@ void OrderBook::removeOrder(Order* order) noexcept {
         }
         order->prev = order->next = nullptr;
     }
-    cid_oid_to_order.remove(order->client_id, order->order_id);
+    cid_oid_to_order.remove(order->user_id, order->order_id);
     order_pool.deallocate(order);
 }
 

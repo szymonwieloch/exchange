@@ -10,7 +10,7 @@ namespace exchange {
 /// overhead.
 struct Order : public utils::LinkedList<Order> {
     TickerId ticker_id = TickerId::INVALID;
-    UserId client_id = UserId::INVALID;
+    UserId user_id = UserId::INVALID;
     OrderId order_id = OrderId::INVALID;
     MarketOrderId market_order_id = MarketOrderId::INVALID;
     Side side = Side::INVALID;
@@ -19,12 +19,12 @@ struct Order : public utils::LinkedList<Order> {
     Priority priority = Priority::INVALID;
     // only needed for use with MemPool.
     Order() = default;
-    Order(TickerId ticker_id, UserId client_id, OrderId order_id, MarketOrderId market_order_id,
+    Order(TickerId ticker_id, UserId user_id, OrderId order_id, MarketOrderId market_order_id,
           Side side, Price price, Quantity qty, Priority priority, Order *prev_order,
           Order *next_order) noexcept
         : LinkedList<Order>(prev_order, next_order),
           ticker_id(ticker_id),
-          client_id(client_id),
+          user_id(user_id),
           order_id(order_id),
           market_order_id(market_order_id),
           side(side),

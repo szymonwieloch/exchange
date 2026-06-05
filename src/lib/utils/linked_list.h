@@ -10,5 +10,16 @@ public:
 
     LinkedList() = default;
     LinkedList(T* prev, T* next) : prev(prev), next(next) {}
+
+    void disconnect() {
+        if (prev) {
+            prev->next = next;
+        }
+        if (next) {
+            next->prev = prev;
+        }
+        next = nullptr;
+        prev = nullptr;
+    }
 };
 }  // namespace utils
