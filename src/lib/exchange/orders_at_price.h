@@ -1,5 +1,6 @@
 #pragma once
 
+#include "lib/utils/linked_list.h"
 #include "order.h"
 
 namespace exchange {
@@ -10,22 +11,19 @@ namespace exchange {
 /// Represents a price level in the order book, which can have multiple orders at the same price.
 /// Implemented using linked list to allow for efficient insertion and deletion of orders at the
 /// same price level.
-struct OrdersAtPrice {
+struct OrdersAtPrice : utils::LinkedList<OrdersAtPrice> {
     OrdersAtPrice() = default;
 
     OrdersAtPrice(Side side, Price price, Order *first_order, OrdersAtPrice *prev_entry,
                   OrdersAtPrice *next_entry)
-        : side(side),
+        : utils::LinkedList<OrdersAtPrice>(prev_entry, next_entry),
+          side(side),
           price(price),
-          first_order(first_order),
-          prev_entry(prev_entry),
-          next_entry(next_entry) {}
+          first_order(first_order) {}
 
     Side side = Side::INVALID;
     Price price = Price::INVALID;
     Order *first_order = nullptr;
-    OrdersAtPrice *prev_entry = nullptr;
-    OrdersAtPrice *next_entry = nullptr;
 };
 
 // Maps price to OrdersAtPrice. We can have multiple OrdersAtPrice for the same price, but they will
@@ -47,7 +45,7 @@ public:
             if (curr->price == price) {
                 return curr;
             }
-            curr = curr->next_entry;
+            curr = curr->next;
         }
         return nullptr;
     }
