@@ -41,8 +41,6 @@ void OrderBook::add(UserId user_id, OrderId order_id, TickerId ticker_id, Side s
 void OrderBook::cancel(UserId user_id, OrderId order_id, TickerId ticker_id) noexcept {
     auto order = cid_oid_to_order.find(user_id, order_id);
     if (!order) [[unlikely]] {
-        // If the order is not found, we generate an MEClientResponse message of type
-        // ClientResponseType::CANCEL_REJECTED to notify the matching engine:
         Response response = Response::cancelRejected(user_id, ticker_id, order_id);
         matching_engine->sendResponse(response);
         return;

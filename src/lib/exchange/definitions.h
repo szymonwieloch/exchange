@@ -87,15 +87,4 @@ struct Cost : type_safe::strong_typedef<Cost, std::uint64_t>,
 
 enum class Side : int8_t { INVALID = 0, BUY = 1, SELL = -1 };
 
-// clang-format off
-constexpr size_t LOG_QUEUE_SIZE        = 8 * 1024 * 1024;
-constexpr size_t ME_MAX_TICKERS        = 8;
-constexpr size_t ME_MAX_CLIENT_UPDATES = 256 * 1024;
-constexpr size_t ME_MAX_MARKET_UPDATES = 256 * 1024;
-constexpr size_t ME_MAX_NUM_CLIENTS    = 256;
-constexpr size_t ME_MAX_ORDER_IDS      = 1024 * 1024;
-constexpr size_t ME_MAX_PRICE_LEVELS   = 256;
-constexpr size_t ME_MAX_ORDERS_PER_USER = 1024;
-// clang-format on
-
 }  // namespace exchange
