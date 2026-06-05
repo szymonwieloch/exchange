@@ -26,6 +26,15 @@ struct OrderId : type_safe::strong_typedef<OrderId, std::uint64_t>,
 };
 inline constexpr OrderId OrderId::INVALID{std::numeric_limits<std::uint64_t>::max()};
 
+struct MarketOrderId : type_safe::strong_typedef<MarketOrderId, std::uint64_t>,
+                       type_safe::strong_typedef_op::integer_arithmetic<MarketOrderId>,
+                       type_safe::strong_typedef_op::equality_comparison<MarketOrderId>,
+                       type_safe::strong_typedef_op::relational_comparison<MarketOrderId> {
+    using strong_typedef::strong_typedef;
+    static const MarketOrderId INVALID;
+};
+inline constexpr MarketOrderId MarketOrderId::INVALID{std::numeric_limits<std::uint64_t>::max()};
+
 struct Quantity : type_safe::strong_typedef<Quantity, std::uint32_t>,
                   type_safe::strong_typedef_op::integer_arithmetic<Quantity>,
                   type_safe::strong_typedef_op::equality_comparison<Quantity>,
