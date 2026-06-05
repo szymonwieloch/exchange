@@ -31,6 +31,16 @@ public:
         return orders[type_safe::get(order_id)];
     }
 
+    void remove(OrderId order_id) noexcept {
+        assert(type_safe::get(order_id) < orders.size());
+        orders[type_safe::get(order_id)] = nullptr;
+    }
+
+    void insert(Order *order) noexcept {
+        assert(type_safe::get(order->order_id) < orders.size());
+        orders[type_safe::get(order->order_id)] = order;
+    }
+
 private:
     std::array<Order *, ME_MAX_ORDERS_PER_USER> orders;
 };
@@ -52,6 +62,16 @@ public:
             return nullptr;
         }
         return user_to_orders[type_safe::get(user_id)].find(order_id);
+    }
+
+    void remove(UserId user_id, OrderId order_id) noexcept {
+        assert(type_safe::get(user_id) < user_to_orders.size());
+        user_to_orders[type_safe::get(user_id)].remove(order_id);
+    }
+
+    void insert(Order *order) noexcept {
+        assert(type_safe::get(order->client_id) < user_to_orders.size());
+        user_to_orders[type_safe::get(order->client_id)].insert(order);
     }
 
 private:
@@ -90,12 +110,11 @@ private:
 
     TickerId ticker_id = TickerId::INVALID;
     MatchingEngine *matching_engine = nullptr;
-    // OrderMap cid_oid_to_order;
+    UserOrderHashMap cid_oid_to_order;
     utils::MemPool<OrdersAtPrice> orders_at_price_pool;
     OrdersAtPrice *bids_by_price = nullptr;
     OrdersAtPrice *asks_by_price = nullptr;
     OrdersAtPriceHashMap orders_at_price;
-    UserOrderHashMap user_orders;
     utils::MemPool<Order> order_pool;
     OrderId next_market_order_id{1};
     std::string time_str;
