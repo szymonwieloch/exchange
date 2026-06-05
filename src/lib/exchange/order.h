@@ -12,14 +12,14 @@ struct Order : public utils::LinkedList<Order> {
     TickerId ticker_id = TickerId::INVALID;
     UserId client_id = UserId::INVALID;
     OrderId order_id = OrderId::INVALID;
-    OrderId market_order_id = OrderId::INVALID;
+    MarketOrderId market_order_id = MarketOrderId::INVALID;
     Side side = Side::INVALID;
     Price price = Price::INVALID;
     Quantity qty = Quantity::INVALID;
     Priority priority = Priority::INVALID;
     // only needed for use with MemPool.
     Order() = default;
-    Order(TickerId ticker_id, UserId client_id, OrderId order_id, OrderId market_order_id,
+    Order(TickerId ticker_id, UserId client_id, OrderId order_id, MarketOrderId market_order_id,
           Side side, Price price, Quantity qty, Priority priority, Order *prev_order,
           Order *next_order) noexcept
         : LinkedList<Order>(prev_order, next_order),

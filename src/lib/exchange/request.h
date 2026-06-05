@@ -31,14 +31,14 @@ struct Response {
     UserId user_id = UserId::INVALID;
     TickerId ticker_id = TickerId::INVALID;
     OrderId order_id = OrderId::INVALID;
-    OrderId market_order_id = OrderId::INVALID;
+    MarketOrderId market_order_id = MarketOrderId::INVALID;
     Side side = Side::INVALID;
     Price price = Price::INVALID;
     Quantity exec_qty = Quantity::INVALID;
     Quantity leaves_qty = Quantity::INVALID;
 
     static Response accepted(UserId user_id, TickerId ticker_id, OrderId order_id,
-                             OrderId market_order_id, Side side, Price price,
+                             MarketOrderId market_order_id, Side side, Price price,
                              Quantity qty) noexcept {
         return Response{.type = ResponseType::ACCEPTED,
                         .user_id = user_id,
@@ -52,7 +52,7 @@ struct Response {
     }
 
     static Response canceled(UserId user_id, TickerId ticker_id, OrderId order_id,
-                             OrderId market_order_id, Side side, Price price,
+                             MarketOrderId market_order_id, Side side, Price price,
                              Quantity qty) noexcept {
         return Response{.type = ResponseType::CANCELED,
                         .user_id = user_id,
@@ -74,7 +74,7 @@ struct Response {
     }
 
     static Response filled(UserId user_id, TickerId ticker_id, OrderId order_id,
-                           OrderId market_order_id, Side side, Price price, Quantity exec_qty,
+                           MarketOrderId market_order_id, Side side, Price price, Quantity exec_qty,
                            Quantity leaves_qty) noexcept {
         return Response{.type = ResponseType::FILLED,
                         .user_id = user_id,

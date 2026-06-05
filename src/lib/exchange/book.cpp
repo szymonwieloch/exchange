@@ -60,7 +60,7 @@ void OrderBook::cancel(UserId user_id, OrderId order_id, TickerId ticker_id) noe
 
 Quantity OrderBook::checkForMatch(UserId user_id, OrderId client_order_id, TickerId ticker_id,
                                   Side side, Price price, Quantity qty,
-                                  OrderId new_market_order_id) noexcept {
+                                  MarketOrderId new_market_order_id) noexcept {
     auto leaves_qty = qty;
     if (side == Side::BUY) {
         while (leaves_qty != Quantity{0} && asks_by_price) {
@@ -87,7 +87,8 @@ Quantity OrderBook::checkForMatch(UserId user_id, OrderId client_order_id, Ticke
 }
 
 void OrderBook::match(TickerId ticker_id, UserId user_id, Side side, OrderId client_order_id,
-                      OrderId new_market_order_id, Order* itr, Quantity* leaves_qty) noexcept {
+                      MarketOrderId new_market_order_id, Order* itr,
+                      Quantity* leaves_qty) noexcept {
     const auto order = itr;
     const auto order_qty = order->qty;
     const auto fill_qty = std::min(*leaves_qty, order_qty);

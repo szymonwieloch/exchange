@@ -19,7 +19,7 @@ public:
              Quantity qty) noexcept;
     void cancel(UserId client_id, OrderId order_id, TickerId ticker_id) noexcept;
 
-    OrderId generateNewMarketOrderId() noexcept { return next_market_order_id++; }
+    MarketOrderId generateNewMarketOrderId() noexcept { return next_market_order_id++; }
 
     // Deleted default, copy & move constructors and assignment-operators.
     OrderBook() = delete;
@@ -33,9 +33,9 @@ private:
     void addOrder(Order *order) noexcept;
     void removeOrder(Order *order) noexcept;
     Quantity checkForMatch(UserId user_id, OrderId client_order_id, TickerId ticker_id, Side side,
-                           Price price, Quantity qty, OrderId new_market_order_id) noexcept;
+                           Price price, Quantity qty, MarketOrderId new_market_order_id) noexcept;
     void match(TickerId ticker_id, UserId user_id, Side side, OrderId client_order_id,
-               OrderId new_market_order_id, Order *itr, Quantity *leaves_qty) noexcept;
+               MarketOrderId new_market_order_id, Order *itr, Quantity *leaves_qty) noexcept;
     void addOrdersAtPrice(OrdersAtPrice *new_orders_at_price) noexcept;
     void removeOrdersAtPrice(Side side, Price price) noexcept;
 
@@ -47,7 +47,7 @@ private:
     OrdersAtPrice *asks_by_price = nullptr;
     OrdersAtPriceHashMap orders_at_price;
     utils::MemPool<Order> order_pool;
-    OrderId next_market_order_id{1};
+    MarketOrderId next_market_order_id{1};
     std::string time_str;
     utils::Logger *logger = nullptr;
 };
