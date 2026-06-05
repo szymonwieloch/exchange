@@ -3,39 +3,10 @@
 #include "definitions.h"
 #include "lib/utils/log.h"
 #include "lib/utils/mem.h"
+#include "order.h"
+#include "orders_at_price.h"
 
 namespace exchange {
-
-/// The main order representation
-/// Uses sentinels for invalid values, so that we can avoid using std::optional and the associated
-/// overhead.
-struct Order {
-    TickerId ticker_id = TickerId::INVALID;
-    UserId client_id = UserId::INVALID;
-    OrderId order_id = OrderId::INVALID;
-    OrderId market_order_id = OrderId::INVALID;
-    Side side = Side::INVALID;
-    Price price = Price::INVALID;
-    Quantity qty = Quantity::INVALID;
-    Priority priority = Priority::INVALID;
-    Order *prev_order = nullptr;
-    Order *next_order = nullptr;
-    // only needed for use with MemPool.
-    Order() = default;
-    Order(TickerId ticker_id, UserId client_id, OrderId order_id, OrderId market_order_id,
-          Side side, Price price, Quantity qty, Priority priority, Order *prev_order,
-          Order *next_order) noexcept
-        : ticker_id(ticker_id),
-          client_id(client_id),
-          order_id(order_id),
-          market_order_id(market_order_id),
-          side(side),
-          price(price),
-          qty(qty),
-          priority(priority),
-          prev_order(prev_order),
-          next_order(next_order) {}
-};
 
 /// User order ID to Order mapping.
 /// We use a fixed size array to store the orders for each user, which allows us to get an order in
@@ -85,67 +56,6 @@ public:
 
 private:
     std::array<OrderMap, ME_MAX_NUM_CLIENTS> user_to_orders;
-};
-
-// TODO: provide abstraction for a non-owning linked list element, which can be used for both
-// OrdersAtPrice and OrderBook.
-
-/// Represents a price level in the order book, which can have multiple orders at the same price.
-/// Implemented using linked list to allow for efficient insertion and deletion of orders at the
-/// same price level.
-struct OrdersAtPrice {
-    OrdersAtPrice() = default;
-
-    OrdersAtPrice(Side side, Price price, Order *first_order, OrdersAtPrice *prev_entry,
-                  OrdersAtPrice *next_entry)
-        : side(side),
-          price(price),
-          first_order(first_order),
-          prev_entry(prev_entry),
-          next_entry(next_entry) {}
-
-    Side side = Side::INVALID;
-    Price price = Price::INVALID;
-    Order *first_order = nullptr;
-    OrdersAtPrice *prev_entry = nullptr;
-    OrdersAtPrice *next_entry = nullptr;
-};
-
-// Maps price to OrdersAtPrice. We can have multiple OrdersAtPrice for the same price, but they will
-// be stored in a linked list. We use a hash map to get to the head of the linked list in O(1) time.
-// The linked list is needed to handle hash collisions, which are inevitable given that we have a
-// fixed size hash map and a potentially unbounded number of price levels.
-class OrdersAtPriceHashMap {
-public:
-    OrdersAtPriceHashMap() { price_to_orders_at_price.fill(nullptr); }
-
-    OrdersAtPriceHashMap(const OrdersAtPriceHashMap &) = delete;
-    OrdersAtPriceHashMap(const OrdersAtPriceHashMap &&) = delete;
-    OrdersAtPriceHashMap &operator=(const OrdersAtPriceHashMap &) = delete;
-    OrdersAtPriceHashMap &operator=(const OrdersAtPriceHashMap &&) = delete;
-
-    OrdersAtPrice *find(Price price) const noexcept {
-        auto curr = price_to_orders_at_price.at(priceToIndex(price));
-        while (curr) {
-            if (curr->price == price) {
-                return curr;
-            }
-            curr = curr->next_entry;
-        }
-        return nullptr;
-    }
-
-    void insert(OrdersAtPrice *entry) noexcept {
-        price_to_orders_at_price.at(priceToIndex(entry->price)) = entry;
-    }
-
-    void clear(Price price) noexcept { price_to_orders_at_price.at(priceToIndex(price)) = nullptr; }
-
-private:
-    std::size_t priceToIndex(Price price) const noexcept {
-        return (type_safe::get(price) % ME_MAX_PRICE_LEVELS);
-    }
-    std::array<OrdersAtPrice *, ME_MAX_PRICE_LEVELS> price_to_orders_at_price;
 };
 
 class MatchingEngine;
