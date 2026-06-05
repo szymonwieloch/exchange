@@ -9,14 +9,14 @@ namespace exchange {
 // The maximum number of orders per user is defined by ME_MAX_ORDERS_PER_USER, which is a
 // compile-time constant. If a user tries to place more than ME_MAX_ORDERS_PER_USER orders, we
 // will reject the order and send a cancel rejected response to the matching engine.
-class OrderMap {
+class UserOrders {
 public:
-    OrderMap() { orders.fill(nullptr); }
+    UserOrders() { orders.fill(nullptr); }
 
-    OrderMap(const OrderMap &) = delete;
-    OrderMap(const OrderMap &&) = delete;
-    OrderMap &operator=(const OrderMap &) = delete;
-    OrderMap &operator=(const OrderMap &&) = delete;
+    UserOrders(const UserOrders &) = delete;
+    UserOrders(const UserOrders &&) = delete;
+    UserOrders &operator=(const UserOrders &) = delete;
+    UserOrders &operator=(const UserOrders &&) = delete;
 
     Order *find(OrderId order_id) const noexcept {
         if (type_safe::get(order_id) >= orders.size()) [[unlikely]] {
@@ -32,6 +32,7 @@ public:
 
     void insert(Order *order) noexcept {
         assert(type_safe::get(order->order_id) < orders.size());
+        assert(orders[type_safe::get(order->order_id)] == nullptr);
         orders[type_safe::get(order->order_id)] = order;
     }
 
@@ -69,7 +70,8 @@ public:
     }
 
 private:
-    std::array<OrderMap, ME_MAX_NUM_CLIENTS> user_to_orders;
+    // TODO: translate into a "real" hash map with a linked list
+    std::array<UserOrders, ME_MAX_NUM_CLIENTS> user_to_orders;
 };
 
 }  // namespace exchange

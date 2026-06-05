@@ -15,19 +15,30 @@ namespace utils {
 /// the end.  This gives good cache locality under sequential allocation
 /// patterns.
 ///
+/// T's constructor is called on allocate() and T's destructor is called on
+/// deallocate().  The pool itself destroys any still-allocated objects on
+/// destruction.
+///
 /// @warning  The pool asserts (terminates) when all slots are exhausted.
 ///           Size the pool conservatively at startup.
-/// @warning  deallocate() does **not** call the object's destructor.  If T
-///           owns external resources you must manually tear down before
-///           deallocating, or use a trivially-destructible T.
 ///
-/// @tparam T  The type stored in the pool. Must be default-constructible
-///            (required by the std::vector backing store).
+/// @tparam T  The type stored in the pool. No default-constructibility
+///            requirement — objects are constructed on demand via placement-new.
 template <typename T>
 class MemPool final {
 public:
-    /// Pre-allocates @p num_elems default-constructed objects.
-    explicit MemPool(std::size_t num_elems) : store(num_elems, ObjectBlock{T(), true}) {}
+    /// Pre-allocates raw storage for @p num_elems objects.
+    explicit MemPool(std::size_t num_elems) : store(num_elems) {}
+
+    /// Destroys any objects that are still allocated.
+    ~MemPool() noexcept {
+        for (auto &block : store) {
+            if (!block.is_free) {
+                // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+                reinterpret_cast<T *>(block.storage)->~T();
+            }
+        }
+    }
 
     /// Allocates a slot from the pool and constructs a T in-place.
     ///
@@ -35,33 +46,37 @@ public:
     /// @return  Pointer to the newly constructed object.
     /// @pre  At least one free slot must exist (enforced by assert).
     template <typename... Args>
-    T *allocate(Args... args) noexcept {
-        auto objBlock = &(store[next_free_index]);
-        assert(objBlock->is_free);
-        T *ret = &(objBlock->object);
+    T *allocate(Args &&...args) noexcept {
+        auto &objBlock = store[next_free_index];
+        assert(objBlock.is_free);
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+        T *ret = reinterpret_cast<T *>(objBlock.storage);
         // NOLINTNEXTLINE(cppcoreguidelines-owning-memory)
-        ret = new (ret) T(args...);  // placement new
-        objBlock->is_free = false;
+        ret = new (ret) T(std::forward<Args>(args)...);  // placement new
+        objBlock.is_free = false;
         updateNextFreeIndex();
         return ret;
     }
 
     /// Returns a previously allocated object to the pool.
     ///
+    /// Calls T's destructor before marking the slot as free.
+    ///
     /// @param elem  Pointer obtained from a prior allocate() call.
-    /// @warning  T's destructor is **not** called.
-    auto deallocate(const T *elem) noexcept {
+    auto deallocate(T *elem) noexcept {
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-        const auto elemIndex = (reinterpret_cast<const ObjectBlock *>(elem) - store.data());
+        const auto elemIndex = (reinterpret_cast<ObjectBlock *>(elem) - store.data());
         assert(elemIndex >= 0 && static_cast<size_t>(elemIndex) < store.size());
         assert(!store[elemIndex].is_free);
+        // NOLINTNEXTLINE(cppcoreguidelines-owning-memory)
+        elem->~T();
         store[elemIndex].is_free = true;
     }
 
 private:
-    /// Internal bookkeeping: a T instance paired with a free/in-use flag.
+    /// Raw aligned storage for a T, paired with a free/in-use flag.
     struct ObjectBlock {
-        T object;
+        alignas(T) unsigned char storage[sizeof(T)];
         bool is_free = true;
     };
 
