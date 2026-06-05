@@ -6,8 +6,8 @@ namespace exchange {
 /// in O(1) time. The order ID is used as the index in the array. We use a fixed size array
 /// instead of a hash map because we want to avoid the overhead of hashing and dynamic memory
 /// allocation.
-// The maximum number of orders per user is defined by ME_MAX_ORDERS_PER_USER, which is a
-// compile-time constant. If a user tries to place more than ME_MAX_ORDERS_PER_USER orders, we
+// The maximum number of orders per user is defined by MAX_ORDERS_PER_USER, which is a
+// compile-time constant. If a user tries to place more than MAX_ORDERS_PER_USER orders, we
 // will reject the order and send a cancel rejected response to the matching engine.
 class UserOrders {
 public:
@@ -37,12 +37,12 @@ public:
     }
 
 private:
-    std::array<Order *, ME_MAX_ORDERS_PER_USER> orders;
+    std::array<Order *, MAX_ORDERS_PER_USER> orders;
 };
 
 /// Maps user ID and user-specific order ID to Order.
 /// Retrieves the Order in O(1) time, but has a fixed maximum number of users and orders per
-/// user, defined by ME_MAX_NUM_CLIENTS and ME_MAX_ORDERS_PER_USER respectively.
+/// user, defined by MAX_NUM_CLIENTS and MAX_ORDERS_PER_USER respectively.
 class UserOrderHashMap {
 public:
     UserOrderHashMap() = default;
@@ -71,7 +71,7 @@ public:
 
 private:
     // TODO: translate into a "real" hash map with a linked list
-    std::array<UserOrders, ME_MAX_NUM_CLIENTS> user_to_orders;
+    std::array<UserOrders, MAX_ACTIVE_USERS> user_to_orders;
 };
 
 }  // namespace exchange

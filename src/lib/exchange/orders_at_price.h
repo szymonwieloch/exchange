@@ -59,9 +59,9 @@ public:
 
 private:
     std::size_t priceToIndex(Price price) const noexcept {
-        return (type_safe::get(price) % ME_MAX_PRICE_LEVELS);
+        return (type_safe::get(price) % MAX_PRICE_LEVELS);
     }
-    std::array<OrdersAtPrice *, ME_MAX_PRICE_LEVELS> price_to_orders_at_price;
+    std::array<OrdersAtPrice *, MAX_PRICE_LEVELS> price_to_orders_at_price;
 };
 
 }  // namespace exchange

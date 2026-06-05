@@ -71,7 +71,7 @@ public:
     }
 
 private:
-    std::array<std::unique_ptr<OrderBook>, ME_MAX_TICKERS> ticker_to_order_book;
+    std::array<std::unique_ptr<OrderBook>, MAX_TICKERS> ticker_to_order_book;
 };
 
 }  // namespace exchange

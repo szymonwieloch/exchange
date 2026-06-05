@@ -7,8 +7,8 @@ namespace exchange {
 OrderBook::OrderBook(TickerId ticker_id, utils::Logger* logger, MatchingEngine* matching_engine)
     : ticker_id(ticker_id),
       matching_engine(matching_engine),
-      orders_at_price_pool(ME_MAX_PRICE_LEVELS),
-      order_pool(ME_MAX_ORDER_IDS),
+      orders_at_price_pool(MAX_PRICE_LEVELS),
+      order_pool(MAX_ORDER_IDS),
       logger(logger) {}
 
 OrderBook::~OrderBook() {
