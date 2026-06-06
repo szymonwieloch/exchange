@@ -12,10 +12,23 @@ public:
     LinkedList(T* prev, T* next) : prev(prev), next(next) {}
 
     void disconnect() {
-        if (prev) {
-            prev->next = next;
+        if (prev != this) {  // loop, the only element
+            if (prev) {
+                prev->next = next;
+            }
+            if (next) {
+                next->prev = prev;
+            }
         }
-        if (next) {
+        next = nullptr;
+        prev = nullptr;
+    }
+
+    void disconnectFromRing() noexcept {
+        assert(prev);
+        assert(next);
+        if (prev != this) {  // loop, the only element
+            prev->next = next;
             next->prev = prev;
         }
         next = nullptr;
