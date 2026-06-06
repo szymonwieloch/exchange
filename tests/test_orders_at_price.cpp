@@ -43,7 +43,7 @@ TEST(OrdersAtPriceTest, DefaultConstructHasNullFirstOrder) {
 
 TEST(OrdersAtPriceTest, ParameterizedConstructorSetsSideAndPrice) {
     Order o = makeOrder(Side::BUY, Price(100), Priority(1));
-    OrdersAtPrice level(Side::BUY, Price(100), &o, nullptr, nullptr);
+    OrdersAtPrice level(Side::BUY, Price(100), &o);
 
     EXPECT_EQ(level.side, Side::BUY);
     EXPECT_EQ(level.price, Price(100));
@@ -52,7 +52,7 @@ TEST(OrdersAtPriceTest, ParameterizedConstructorSetsSideAndPrice) {
 
 TEST(OrdersAtPriceTest, ConstructedWithSingleOrderFormsSelfLoop) {
     Order o = makeOrder(Side::SELL, Price(200), Priority(1));
-    OrdersAtPrice level(Side::SELL, Price(200), &o, nullptr, nullptr);
+    OrdersAtPrice level(Side::SELL, Price(200), &o);
 
     // Single-order ring: order points to itself
     EXPECT_EQ(o.getNext(), &o);
@@ -62,7 +62,7 @@ TEST(OrdersAtPriceTest, ConstructedWithSingleOrderFormsSelfLoop) {
 
 TEST(OrdersAtPriceTest, LinkedListPrevNextSetCorrectly) {
     Order o = makeOrder(Side::BUY, Price(50), Priority(1));
-    OrdersAtPrice level(Side::BUY, Price(50), &o, nullptr, nullptr);
+    OrdersAtPrice level(Side::BUY, Price(50), &o);
 
     EXPECT_EQ(level.prev, nullptr);
     EXPECT_EQ(level.next, nullptr);
@@ -71,11 +71,13 @@ TEST(OrdersAtPriceTest, LinkedListPrevNextSetCorrectly) {
 TEST(OrdersAtPriceTest, LinkedListPrevNextSetToNeighbors) {
     Order o = makeOrder(Side::BUY, Price(50), Priority(1));
 
-    // Dummy neighbors to verify the pointers are forwarded to LinkedList
+    // Dummy neighbors to verify the pointers can be set directly
     OrdersAtPrice dummyPrev;
     OrdersAtPrice dummyNext;
 
-    OrdersAtPrice level(Side::BUY, Price(50), &o, &dummyPrev, &dummyNext);
+    OrdersAtPrice level(Side::BUY, Price(50), &o);
+    level.prev = &dummyPrev;
+    level.next = &dummyNext;
 
     EXPECT_EQ(level.prev, &dummyPrev);
     EXPECT_EQ(level.next, &dummyNext);
@@ -87,7 +89,7 @@ TEST(OrdersAtPriceTest, LinkedListPrevNextSetToNeighbors) {
 
 TEST(OrdersAtPriceTest, HasSingleOrderTrueForOneOrder) {
     Order o = makeOrder(Side::BUY, Price(100), Priority(1));
-    OrdersAtPrice level(Side::BUY, Price(100), &o, nullptr, nullptr);
+    OrdersAtPrice level(Side::BUY, Price(100), &o);
 
     EXPECT_TRUE(level.hasSingleOrder());
 }
@@ -96,7 +98,7 @@ TEST(OrdersAtPriceTest, HasSingleOrderFalseAfterInsert) {
     Order o1 = makeOrder(Side::BUY, Price(100), Priority(1));
     Order o2 = makeOrder(Side::BUY, Price(100), Priority(2));
 
-    OrdersAtPrice level(Side::BUY, Price(100), &o1, nullptr, nullptr);
+    OrdersAtPrice level(Side::BUY, Price(100), &o1);
     level.insert(&o2);
 
     EXPECT_FALSE(level.hasSingleOrder());
@@ -108,7 +110,7 @@ TEST(OrdersAtPriceTest, HasSingleOrderFalseAfterInsert) {
 
 TEST(OrdersAtPriceTest, NextPriorityForSingleOrderIsTwo) {
     Order o = makeOrder(Side::SELL, Price(300), Priority(1));
-    OrdersAtPrice level(Side::SELL, Price(300), &o, nullptr, nullptr);
+    OrdersAtPrice level(Side::SELL, Price(300), &o);
 
     EXPECT_EQ(level.nextPriority(), Priority(2));
 }
@@ -117,7 +119,7 @@ TEST(OrdersAtPriceTest, NextPriorityIncrementsAfterInsert) {
     Order o1 = makeOrder(Side::SELL, Price(300), Priority(1));
     Order o2 = makeOrder(Side::SELL, Price(300), Priority(2));
 
-    OrdersAtPrice level(Side::SELL, Price(300), &o1, nullptr, nullptr);
+    OrdersAtPrice level(Side::SELL, Price(300), &o1);
     level.insert(&o2);
 
     EXPECT_EQ(level.nextPriority(), Priority(3));
@@ -129,7 +131,7 @@ TEST(OrdersAtPriceTest, NextPriorityAfterRemoveDecrementNotExpected) {
     Order o2 = makeOrder(Side::BUY, Price(100), Priority(2));
     Order o3 = makeOrder(Side::BUY, Price(100), Priority(3));
 
-    OrdersAtPrice level(Side::BUY, Price(100), &o1, nullptr, nullptr);
+    OrdersAtPrice level(Side::BUY, Price(100), &o1);
     level.insert(&o2);
     level.insert(&o3);
     EXPECT_EQ(level.nextPriority(), Priority(4));
@@ -147,7 +149,7 @@ TEST(OrdersAtPriceTest, InsertAddsOrderAtBack) {
     Order o1 = makeOrder(Side::BUY, Price(100), Priority(1));
     Order o2 = makeOrder(Side::BUY, Price(100), Priority(2));
 
-    OrdersAtPrice level(Side::BUY, Price(100), &o1, nullptr, nullptr);
+    OrdersAtPrice level(Side::BUY, Price(100), &o1);
     level.insert(&o2);
 
     // first_order still points to o1 (oldest)
@@ -167,7 +169,7 @@ TEST(OrdersAtPriceTest, InsertMultipleOrdersPreservesFifoOrder) {
     Order o2 = makeOrder(Side::SELL, Price(500), Priority(2));
     Order o3 = makeOrder(Side::SELL, Price(500), Priority(3));
 
-    OrdersAtPrice level(Side::SELL, Price(500), &o1, nullptr, nullptr);
+    OrdersAtPrice level(Side::SELL, Price(500), &o1);
     level.insert(&o2);
     level.insert(&o3);
 
@@ -187,7 +189,7 @@ TEST(OrdersAtPriceTest, InsertUpdatesFirstOrderPrev) {
     Order o1 = makeOrder(Side::BUY, Price(50), Priority(1));
     Order o2 = makeOrder(Side::BUY, Price(50), Priority(2));
 
-    OrdersAtPrice level(Side::BUY, Price(50), &o1, nullptr, nullptr);
+    OrdersAtPrice level(Side::BUY, Price(50), &o1);
     level.insert(&o2);
 
     // first_order->getPrev() should point to the newest order
@@ -203,7 +205,7 @@ TEST(OrdersAtPriceTest, RemoveMiddleOrderPreservesRing) {
     Order o2 = makeOrder(Side::BUY, Price(100), Priority(2));
     Order o3 = makeOrder(Side::BUY, Price(100), Priority(3));
 
-    OrdersAtPrice level(Side::BUY, Price(100), &o1, nullptr, nullptr);
+    OrdersAtPrice level(Side::BUY, Price(100), &o1);
     level.insert(&o2);
     level.insert(&o3);
 
@@ -228,7 +230,7 @@ TEST(OrdersAtPriceTest, RemoveLastOrderAdvancesFirstOrder) {
     Order o2 = makeOrder(Side::SELL, Price(50), Priority(2));
     Order o3 = makeOrder(Side::SELL, Price(50), Priority(3));
 
-    OrdersAtPrice level(Side::SELL, Price(50), &o1, nullptr, nullptr);
+    OrdersAtPrice level(Side::SELL, Price(50), &o1);
     level.insert(&o2);
     level.insert(&o3);
 
@@ -243,7 +245,7 @@ TEST(OrdersAtPriceTest, RemoveFirstOrderAdvancesAnchor) {
     Order o2 = makeOrder(Side::BUY, Price(75), Priority(2));
     Order o3 = makeOrder(Side::BUY, Price(75), Priority(3));
 
-    OrdersAtPrice level(Side::BUY, Price(75), &o1, nullptr, nullptr);
+    OrdersAtPrice level(Side::BUY, Price(75), &o1);
     level.insert(&o2);
     level.insert(&o3);
 
@@ -264,7 +266,7 @@ TEST(OrdersAtPriceTest, RemoveReducesToSingleOrderCorrectly) {
     Order o1 = makeOrder(Side::BUY, Price(200), Priority(1));
     Order o2 = makeOrder(Side::BUY, Price(200), Priority(2));
 
-    OrdersAtPrice level(Side::BUY, Price(200), &o1, nullptr, nullptr);
+    OrdersAtPrice level(Side::BUY, Price(200), &o1);
     level.insert(&o2);
 
     level.remove(&o2);
@@ -283,7 +285,7 @@ TEST(OrdersAtPriceTest, AllOrdersAtLevelShareSameSideBuy) {
     Order o1 = makeOrder(Side::BUY, Price(42), Priority(1));
     Order o2 = makeOrder(Side::BUY, Price(42), Priority(2));
 
-    OrdersAtPrice level(Side::BUY, Price(42), &o1, nullptr, nullptr);
+    OrdersAtPrice level(Side::BUY, Price(42), &o1);
     level.insert(&o2);
 
     EXPECT_EQ(level.side, Side::BUY);
@@ -296,7 +298,7 @@ TEST(OrdersAtPriceTest, AllOrdersAtLevelShareSameSideSell) {
     Order o1 = makeOrder(Side::SELL, Price(99), Priority(1));
     Order o2 = makeOrder(Side::SELL, Price(99), Priority(2));
 
-    OrdersAtPrice level(Side::SELL, Price(99), &o1, nullptr, nullptr);
+    OrdersAtPrice level(Side::SELL, Price(99), &o1);
     level.insert(&o2);
 
     EXPECT_EQ(level.side, Side::SELL);
@@ -313,7 +315,7 @@ TEST(OrdersAtPriceTest, InsertRemoveCyclePreservesCorrectness) {
     // Simulate a series of insertions and removals to ensure
     // the ring stays consistent under churn.
     Order o1 = makeOrder(Side::BUY, Price(100), Priority(1));
-    OrdersAtPrice level(Side::BUY, Price(100), &o1, nullptr, nullptr);
+    OrdersAtPrice level(Side::BUY, Price(100), &o1);
 
     // Insert 5 more orders
     Order orders[5];
@@ -349,7 +351,7 @@ TEST(OrdersAtPriceTest, RemoveFirstThenInsertNewOrders) {
     Order o2 = makeOrder(Side::SELL, Price(10), Priority(2));
     Order o3 = makeOrder(Side::SELL, Price(10), Priority(3));
 
-    OrdersAtPrice level(Side::SELL, Price(10), &o1, nullptr, nullptr);
+    OrdersAtPrice level(Side::SELL, Price(10), &o1);
     level.insert(&o2);
     level.insert(&o3);
 
@@ -376,7 +378,7 @@ TEST(OrdersAtPriceTest, RemoveFirstThenInsertNewOrders) {
 
 TEST(OrdersAtPriceTestDeath, RemoveSingleOrderAsserts) {
     Order o = makeOrder(Side::BUY, Price(100), Priority(1));
-    OrdersAtPrice level(Side::BUY, Price(100), &o, nullptr, nullptr);
+    OrdersAtPrice level(Side::BUY, Price(100), &o);
 
     EXPECT_DEATH(level.remove(&o), "hasSingleOrder");
 }
@@ -386,7 +388,7 @@ TEST(OrdersAtPriceTestDeath, RemoveOrderWithWrongSideAsserts) {
     Order o2 = makeOrder(Side::BUY, Price(100), Priority(2));
     Order oWrong = makeOrder(Side::SELL, Price(100), Priority(3));
 
-    OrdersAtPrice level(Side::BUY, Price(100), &o1, nullptr, nullptr);
+    OrdersAtPrice level(Side::BUY, Price(100), &o1);
     level.insert(&o2);
 
     EXPECT_DEATH(level.remove(&oWrong), "side");
@@ -397,7 +399,7 @@ TEST(OrdersAtPriceTestDeath, RemoveOrderWithWrongPriceAsserts) {
     Order o2 = makeOrder(Side::SELL, Price(200), Priority(2));
     Order oWrong = makeOrder(Side::SELL, Price(999), Priority(3));
 
-    OrdersAtPrice level(Side::SELL, Price(200), &o1, nullptr, nullptr);
+    OrdersAtPrice level(Side::SELL, Price(200), &o1);
     level.insert(&o2);
 
     EXPECT_DEATH(level.remove(&oWrong), "price");
@@ -407,7 +409,7 @@ TEST(OrdersAtPriceTestDeath, InsertWithWrongPriorityAsserts) {
     Order o1 = makeOrder(Side::BUY, Price(50), Priority(1));
     Order oBad = makeOrder(Side::BUY, Price(50), Priority(99));  // should be 2
 
-    OrdersAtPrice level(Side::BUY, Price(50), &o1, nullptr, nullptr);
+    OrdersAtPrice level(Side::BUY, Price(50), &o1);
 
     EXPECT_DEATH(level.insert(&oBad), "priority");
 }
@@ -416,7 +418,7 @@ TEST(OrdersAtPriceTestDeath, InsertWithWrongSideAsserts) {
     Order o1 = makeOrder(Side::BUY, Price(50), Priority(1));
     Order oBad = makeOrder(Side::SELL, Price(50), Priority(2));
 
-    OrdersAtPrice level(Side::BUY, Price(50), &o1, nullptr, nullptr);
+    OrdersAtPrice level(Side::BUY, Price(50), &o1);
 
     EXPECT_DEATH(level.insert(&oBad), "side");
 }
@@ -425,7 +427,7 @@ TEST(OrdersAtPriceTestDeath, InsertWithWrongPriceAsserts) {
     Order o1 = makeOrder(Side::BUY, Price(50), Priority(1));
     Order oBad = makeOrder(Side::BUY, Price(999), Priority(2));
 
-    OrdersAtPrice level(Side::BUY, Price(50), &o1, nullptr, nullptr);
+    OrdersAtPrice level(Side::BUY, Price(50), &o1);
 
     EXPECT_DEATH(level.insert(&oBad), "price");
 }

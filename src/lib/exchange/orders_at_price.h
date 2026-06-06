@@ -39,7 +39,7 @@ namespace exchange {
 /// - `remove()` must only be called when there are **2 or more** orders.
 ///   The caller is responsible for destroying the entire `OrdersAtPrice`
 ///   instance when the last order is removed.
-class OrdersAtPrice : public utils::LinkedList<OrdersAtPrice> {
+class OrdersAtPrice {
 public:
     /// Default constructor for MemPool pre-allocation.
     /// Leaves the instance in an uninitialized state — `first_order` is null.
@@ -56,12 +56,8 @@ public:
     ///                     linked list, or nullptr if this is the new head.
     /// @param next_entry   Next `OrdersAtPrice` in the side's price-sorted
     ///                     linked list, or nullptr if this is the new tail.
-    OrdersAtPrice(Side side, Price price, Order *first_order, OrdersAtPrice *prev_entry,
-                  OrdersAtPrice *next_entry) noexcept
-        : utils::LinkedList<OrdersAtPrice>(prev_entry, next_entry),
-          side(side),
-          price(price),
-          first_order(first_order) {
+    OrdersAtPrice(Side side, Price price, Order *first_order) noexcept
+        : side(side), price(price), first_order(first_order) {
         first_order->makeRing();
     }
 
@@ -74,6 +70,13 @@ public:
     /// Anchor of the circular order ring. Points to the **oldest** order
     /// (lowest priority) — the next candidate for matching.
     Order *first_order = nullptr;
+
+    OrdersAtPrice *next = nullptr;
+    OrdersAtPrice *prev = nullptr;
+
+    void disconnect() noexcept {
+        // TODO
+    }
 
     /// Returns the priority value that the next inserted order should carry.
     ///
@@ -167,7 +170,7 @@ public:
         const auto at_price = find(order->price);
         if (!at_price) {
             auto new_orders_at_price =
-                orders_at_price_pool.allocate(order->side, order->price, order, nullptr, nullptr);
+                orders_at_price_pool.allocate(order->side, order->price, order);
             addOrdersAtPrice(new_orders_at_price);
         } else {
             at_price->insert(order);
