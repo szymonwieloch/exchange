@@ -36,15 +36,10 @@ private:
                            Price price, Quantity qty, MarketOrderId new_market_order_id) noexcept;
     void match(TickerId ticker_id, UserId user_id, Side side, OrderId client_order_id,
                MarketOrderId new_market_order_id, Order *itr, Quantity *leaves_qty) noexcept;
-    void addOrdersAtPrice(OrdersAtPrice *new_orders_at_price) noexcept;
-    void removeOrdersAtPrice(Side side, Price price) noexcept;
 
     TickerId ticker_id = TickerId::INVALID;
     MatchingEngine *matching_engine = nullptr;
     UserOrderHashMap cid_oid_to_order;
-    utils::MemPool<OrdersAtPrice> orders_at_price_pool;
-    OrdersAtPrice *bids_by_price = nullptr;
-    OrdersAtPrice *asks_by_price = nullptr;
     OrdersAtPriceHashMap orders_at_price;
     utils::MemPool<Order> order_pool;
     MarketOrderId next_market_order_id{1};

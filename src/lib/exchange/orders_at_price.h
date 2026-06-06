@@ -33,7 +33,14 @@ struct OrdersAtPrice : utils::LinkedList<OrdersAtPrice> {
 // fixed size hash map and a potentially unbounded number of price levels.
 class OrdersAtPriceHashMap {
 public:
-    OrdersAtPriceHashMap() { price_to_orders_at_price.fill(nullptr); }
+    OrdersAtPriceHashMap() : orders_at_price_pool(MAX_PRICE_LEVELS) {
+        price_to_orders_at_price.fill(nullptr);
+    }
+
+    ~OrdersAtPriceHashMap() {
+        bids_by_price = nullptr;
+        asks_by_price = nullptr;
+    }
 
     OrdersAtPriceHashMap(const OrdersAtPriceHashMap &) = delete;
     OrdersAtPriceHashMap(const OrdersAtPriceHashMap &&) = delete;
@@ -57,10 +64,96 @@ public:
 
     void clear(Price price) noexcept { price_to_orders_at_price.at(priceToIndex(price)) = nullptr; }
 
+    void removeOrdersAtPrice(Side side, Price price) noexcept {
+        const auto best_orders_by_price = (side == Side::BUY ? bids_by_price : asks_by_price);
+        auto orders_at_price = this->find(price);
+        if (orders_at_price->next == orders_at_price) [[unlikely]] {  // empty side of book.
+            (side == Side::BUY ? bids_by_price : asks_by_price) = nullptr;
+        } else {
+            orders_at_price->prev->next = orders_at_price->next;
+            orders_at_price->next->prev = orders_at_price->prev;
+            if (orders_at_price == best_orders_by_price) {
+                (side == Side::BUY ? bids_by_price : asks_by_price) = orders_at_price->next;
+            }
+            orders_at_price->prev = orders_at_price->next = nullptr;
+        }
+        clear(price);
+        orders_at_price_pool.deallocate(orders_at_price);
+    }
+
+    void addOrdersAtPrice(OrdersAtPrice *new_orders_at_price) noexcept {
+        insert(new_orders_at_price);
+
+        const auto best_orders_by_price =
+            (new_orders_at_price->side == Side::BUY ? bids_by_price : asks_by_price);
+
+        if (!best_orders_by_price) [[unlikely]] {
+            (new_orders_at_price->side == Side::BUY ? bids_by_price : asks_by_price) =
+                new_orders_at_price;
+            new_orders_at_price->prev = new_orders_at_price->next = new_orders_at_price;
+        }
+
+        else {
+            auto target = best_orders_by_price;
+            bool add_after = ((new_orders_at_price->side == Side::SELL &&
+                               new_orders_at_price->price > target->price) ||
+                              (new_orders_at_price->side == Side::BUY &&
+                               new_orders_at_price->price < target->price));
+            if (add_after) {
+                target = target->next;
+                add_after = ((new_orders_at_price->side == Side::SELL &&
+                              new_orders_at_price->price > target->price) ||
+                             (new_orders_at_price->side == Side::BUY &&
+                              new_orders_at_price->price < target->price));
+            }
+            while (add_after && target != best_orders_by_price) {
+                add_after = ((new_orders_at_price->side == Side::SELL &&
+                              new_orders_at_price->price > target->price) ||
+                             (new_orders_at_price->side == Side::BUY &&
+                              new_orders_at_price->price < target->price));
+                if (add_after)
+                    target = target->next;
+            }
+
+            if (add_after) {  // add new_orders_at_price after
+                              // target.
+                if (target == best_orders_by_price) {
+                    target = best_orders_by_price->prev;
+                }
+                new_orders_at_price->prev = target;
+                target->next->prev = new_orders_at_price;
+                new_orders_at_price->next = target->next;
+                target->next = new_orders_at_price;
+            } else {  // add new_orders_at_price before target.
+                new_orders_at_price->prev = target->prev;
+                new_orders_at_price->next = target;
+                target->prev->next = new_orders_at_price;
+                target->prev = new_orders_at_price;
+
+                if ((new_orders_at_price->side == Side::BUY &&
+                     new_orders_at_price->price > best_orders_by_price->price) ||
+                    (new_orders_at_price->side == Side::SELL &&
+                     new_orders_at_price->price < best_orders_by_price->price)) {
+                    target->next =
+                        (target->next == best_orders_by_price ? new_orders_at_price : target->next);
+                    (new_orders_at_price->side == Side::BUY ? bids_by_price : asks_by_price) =
+                        new_orders_at_price;
+                }
+            }
+        }
+    }
+
 private:
     std::size_t priceToIndex(Price price) const noexcept {
         return (type_safe::get(price) % MAX_PRICE_LEVELS);
     }
+
+public:  // temporary
+    utils::MemPool<OrdersAtPrice> orders_at_price_pool;
+    OrdersAtPrice *bids_by_price = nullptr;
+    OrdersAtPrice *asks_by_price = nullptr;
+
+private:
     std::array<OrdersAtPrice *, MAX_PRICE_LEVELS> price_to_orders_at_price;
 };
 
