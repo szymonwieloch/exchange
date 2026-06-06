@@ -28,7 +28,7 @@ void OrderBook::add(UserId user_id, OrderId order_id, TickerId ticker_id, Side s
     if (leaves_qty != Quantity{0}) [[likely]] {
         const auto priority = orders_at_price.nextPriority(price);
         auto order = order_pool.allocate(ticker_id, user_id, order_id, new_market_order_id, side,
-                                         price, leaves_qty, priority, nullptr, nullptr);
+                                         price, leaves_qty, priority);
         addOrder(order);
         auto market_update = MDUpdate::add(ticker_id, side, price, leaves_qty, priority);
         matching_engine->sendMarketUpdate(market_update);

@@ -25,9 +25,7 @@ Order makeOrder(Side side, Price price, Priority prio) noexcept {
                  side,
                  price,
                  exchange::Quantity(1),
-                 prio,
-                 nullptr,   // prev
-                 nullptr};  // next
+                 prio};
 }
 
 }  // namespace
@@ -57,8 +55,8 @@ TEST(OrdersAtPriceTest, ConstructedWithSingleOrderFormsSelfLoop) {
     OrdersAtPrice level(Side::SELL, Price(200), &o, nullptr, nullptr);
 
     // Single-order ring: order points to itself
-    EXPECT_EQ(o.next, &o);
-    EXPECT_EQ(o.prev, &o);
+    EXPECT_EQ(o.getNext(), &o);
+    EXPECT_EQ(o.getPrev(), &o);
     EXPECT_TRUE(level.hasSingleOrder());
 }
 
@@ -156,12 +154,12 @@ TEST(OrdersAtPriceTest, InsertAddsOrderAtBack) {
     EXPECT_EQ(level.first_order, &o1);
 
     // o2 is after o1 (the newest/last)
-    EXPECT_EQ(o1.next, &o2);
-    EXPECT_EQ(o2.prev, &o1);
+    EXPECT_EQ(o1.getNext(), &o2);
+    EXPECT_EQ(o2.getPrev(), &o1);
 
     // Ring is circular
-    EXPECT_EQ(o2.next, &o1);
-    EXPECT_EQ(o1.prev, &o2);
+    EXPECT_EQ(o2.getNext(), &o1);
+    EXPECT_EQ(o1.getPrev(), &o2);
 }
 
 TEST(OrdersAtPriceTest, InsertMultipleOrdersPreservesFifoOrder) {
@@ -175,14 +173,14 @@ TEST(OrdersAtPriceTest, InsertMultipleOrdersPreservesFifoOrder) {
 
     // Traverse forward: oldest to newest
     EXPECT_EQ(level.first_order, &o1);
-    EXPECT_EQ(o1.next, &o2);
-    EXPECT_EQ(o2.next, &o3);
-    EXPECT_EQ(o3.next, &o1);  // back to head
+    EXPECT_EQ(o1.getNext(), &o2);
+    EXPECT_EQ(o2.getNext(), &o3);
+    EXPECT_EQ(o3.getNext(), &o1);  // back to head
 
     // Traverse backward: newest to oldest
-    EXPECT_EQ(o3.prev, &o2);
-    EXPECT_EQ(o2.prev, &o1);
-    EXPECT_EQ(o1.prev, &o3);
+    EXPECT_EQ(o3.getPrev(), &o2);
+    EXPECT_EQ(o2.getPrev(), &o1);
+    EXPECT_EQ(o1.getPrev(), &o3);
 }
 
 TEST(OrdersAtPriceTest, InsertUpdatesFirstOrderPrev) {
@@ -192,8 +190,8 @@ TEST(OrdersAtPriceTest, InsertUpdatesFirstOrderPrev) {
     OrdersAtPrice level(Side::BUY, Price(50), &o1, nullptr, nullptr);
     level.insert(&o2);
 
-    // first_order->prev should point to the newest order
-    EXPECT_EQ(level.first_order->prev, &o2);
+    // first_order->getPrev() should point to the newest order
+    EXPECT_EQ(level.first_order->getPrev(), &o2);
 }
 
 // ===================================================================
@@ -215,14 +213,14 @@ TEST(OrdersAtPriceTest, RemoveMiddleOrderPreservesRing) {
     EXPECT_EQ(level.first_order, &o1);  // anchor unchanged
 
     // Ring now: o1 <-> o3
-    EXPECT_EQ(o1.next, &o3);
-    EXPECT_EQ(o3.prev, &o1);
-    EXPECT_EQ(o3.next, &o1);
-    EXPECT_EQ(o1.prev, &o3);
+    EXPECT_EQ(o1.getNext(), &o3);
+    EXPECT_EQ(o3.getPrev(), &o1);
+    EXPECT_EQ(o3.getNext(), &o1);
+    EXPECT_EQ(o1.getPrev(), &o3);
 
     // o2 is disconnected
-    EXPECT_EQ(o2.next, nullptr);
-    EXPECT_EQ(o2.prev, nullptr);
+    EXPECT_EQ(o2.getNext(), nullptr);
+    EXPECT_EQ(o2.getPrev(), nullptr);
 }
 
 TEST(OrdersAtPriceTest, RemoveLastOrderAdvancesFirstOrder) {
@@ -256,10 +254,10 @@ TEST(OrdersAtPriceTest, RemoveFirstOrderAdvancesAnchor) {
     EXPECT_FALSE(level.hasSingleOrder());
 
     // Ring: o2 <-> o3
-    EXPECT_EQ(o2.next, &o3);
-    EXPECT_EQ(o3.prev, &o2);
-    EXPECT_EQ(o3.next, &o2);
-    EXPECT_EQ(o2.prev, &o3);
+    EXPECT_EQ(o2.getNext(), &o3);
+    EXPECT_EQ(o3.getPrev(), &o2);
+    EXPECT_EQ(o3.getNext(), &o2);
+    EXPECT_EQ(o2.getPrev(), &o3);
 }
 
 TEST(OrdersAtPriceTest, RemoveReducesToSingleOrderCorrectly) {
@@ -273,8 +271,8 @@ TEST(OrdersAtPriceTest, RemoveReducesToSingleOrderCorrectly) {
 
     EXPECT_TRUE(level.hasSingleOrder());
     EXPECT_EQ(level.first_order, &o1);
-    EXPECT_EQ(o1.next, &o1);
-    EXPECT_EQ(o1.prev, &o1);
+    EXPECT_EQ(o1.getNext(), &o1);
+    EXPECT_EQ(o1.getPrev(), &o1);
 }
 
 // ===================================================================
@@ -335,14 +333,14 @@ TEST(OrdersAtPriceTest, InsertRemoveCyclePreservesCorrectness) {
 
     // Verify traversal: should be o1, orders[0], orders[4]
     EXPECT_EQ(level.first_order, &o1);
-    EXPECT_EQ(o1.next, &orders[0]);
-    EXPECT_EQ(orders[0].next, &orders[4]);
-    EXPECT_EQ(orders[4].next, &o1);
+    EXPECT_EQ(o1.getNext(), &orders[0]);
+    EXPECT_EQ(orders[0].getNext(), &orders[4]);
+    EXPECT_EQ(orders[4].getNext(), &o1);
 
     // Backward traversal
-    EXPECT_EQ(o1.prev, &orders[4]);
-    EXPECT_EQ(orders[4].prev, &orders[0]);
-    EXPECT_EQ(orders[0].prev, &o1);
+    EXPECT_EQ(o1.getPrev(), &orders[4]);
+    EXPECT_EQ(orders[4].getPrev(), &orders[0]);
+    EXPECT_EQ(orders[0].getPrev(), &o1);
 }
 
 TEST(OrdersAtPriceTest, RemoveFirstThenInsertNewOrders) {
@@ -364,9 +362,9 @@ TEST(OrdersAtPriceTest, RemoveFirstThenInsertNewOrders) {
     level.insert(&o4);
 
     EXPECT_EQ(level.first_order, &o2);
-    EXPECT_EQ(o2.next, &o3);
-    EXPECT_EQ(o3.next, &o4);
-    EXPECT_EQ(o4.next, &o2);
+    EXPECT_EQ(o2.getNext(), &o3);
+    EXPECT_EQ(o3.getNext(), &o4);
+    EXPECT_EQ(o4.getNext(), &o2);
     EXPECT_EQ(level.nextPriority(), Priority(5));
 }
 

@@ -62,7 +62,7 @@ public:
           side(side),
           price(price),
           first_order(first_order) {
-        first_order->next = first_order->prev = first_order;  // single-element ring
+        first_order->makeRing();
     }
 
     /// Side of all orders at this price level. Immutable after construction.
@@ -83,7 +83,7 @@ public:
     /// @pre `first_order` is non-null (the level is initialized).
     [[nodiscard]] Priority nextPriority() const noexcept {
         assert(first_order);
-        return first_order->prev->priority + Priority{1};
+        return first_order->getPrev()->priority + Priority{1};
     }
 
     /// Returns true if the ring contains exactly one order.
@@ -91,7 +91,7 @@ public:
     /// @pre `first_order` is non-null.
     [[nodiscard]] bool hasSingleOrder() const noexcept {
         assert(first_order);
-        return first_order->prev == first_order;
+        return first_order->getPrev() == first_order;
     }
 
     /// Removes an order from the ring.
@@ -109,9 +109,9 @@ public:
         assert(order->price == price);
         assert(!hasSingleOrder());  // caller must destroy the whole level instead
         if (first_order == order) {
-            first_order = order->next;
+            first_order = order->getNext();
         }
-        order->disconnectFromRing();
+        order->disconnect();
     }
 
     /// Inserts an order at the **back** of the ring (before `first_order`),
@@ -127,11 +127,8 @@ public:
         assert(first_order);
         assert(order->side == side);
         assert(order->price == price);
-        assert(order->priority == first_order->prev->priority + Priority(1));
-        first_order->prev->next = order;
-        order->prev = first_order->prev;
-        order->next = first_order;
-        first_order->prev = order;
+        assert(order->priority == first_order->getPrev()->priority + Priority(1));
+        order->addToRing(first_order);
     }
 };
 

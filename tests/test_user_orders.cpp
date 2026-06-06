@@ -25,9 +25,7 @@ Order makeOrder(UserId uid, OrderId oid) noexcept {
                  exchange::Side::BUY,
                  exchange::Price(100),
                  exchange::Quantity(1),
-                 exchange::Priority(0),
-                 nullptr,
-                 nullptr};
+                 exchange::Priority(0)};
 }
 
 }  // namespace
