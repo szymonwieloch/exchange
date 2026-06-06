@@ -58,8 +58,9 @@ Quantity OrderBook::checkForMatch(UserId user_id, OrderId client_order_id, Ticke
                                   MarketOrderId new_market_order_id) noexcept {
     auto leaves_qty = qty;
     if (side == Side::BUY) {
-        while (leaves_qty != Quantity{0} && orders_at_price.asks_by_price) {
-            const auto ask_itr = orders_at_price.asks_by_price->first_order;
+        auto asks_by_price = orders_at_price.asks();
+        while (leaves_qty != Quantity{0} && asks_by_price) {
+            const auto ask_itr = asks_by_price->first_order;
             if (price < ask_itr->price) [[likely]] {
                 break;
             }
@@ -69,8 +70,9 @@ Quantity OrderBook::checkForMatch(UserId user_id, OrderId client_order_id, Ticke
     }
 
     if (side == Side::SELL) {
-        while (leaves_qty != Quantity{0} && orders_at_price.bids_by_price) {
-            const auto bid_itr = orders_at_price.bids_by_price->first_order;
+        auto bids_by_price = orders_at_price.bids();
+        while (leaves_qty != Quantity{0} && bids_by_price) {
+            const auto bid_itr = bids_by_price->first_order;
             if (price > bid_itr->price) [[likely]] {
                 break;
             }
@@ -121,37 +123,17 @@ Priority OrderBook::getNextPriority(Price price) noexcept {
     return orders->first_order->prev->priority + Priority{1};
 }
 
-void OrderBook::addOrder(Order* order) noexcept {
-    const auto at_price = orders_at_price.find(order->price);
-    if (!at_price) {
-        order->next = order->prev = order;
-        auto new_orders_at_price = orders_at_price.orders_at_price_pool.allocate(
-            order->side, order->price, order, nullptr, nullptr);
-        orders_at_price.addOrdersAtPrice(new_orders_at_price);
+bool OrderBook::addOrder(Order* order) noexcept {
+    if (!cid_oid_to_order.insert(order)) [[unlikely]] {
+        return false;
     }
-
-    else {
-        auto first_order = (at_price ? at_price->first_order : nullptr);
-        first_order->prev->next = order;
-        order->prev = first_order->prev;
-        order->next = first_order;
-        first_order->prev = order;
-    }
-
-    (void)cid_oid_to_order.insert(order);
+    orders_at_price.insert(order);
+    return true;
 }
 
 void OrderBook::removeOrder(Order* order) noexcept {
-    auto orders_at_price = this->orders_at_price.find(order->price);
-    if (order->prev == order) {  // only one element.
-        this->orders_at_price.removeOrdersAtPrice(order->side, order->price);
-    } else {  // remove the link.
-        if (orders_at_price->first_order == order) {
-            orders_at_price->first_order = order->next;
-        }
-        order->disconnect();
-    }
     cid_oid_to_order.remove(order->user_id, order->order_id);
+    orders_at_price.remove(order);
     order_pool.deallocate(order);
 }
 

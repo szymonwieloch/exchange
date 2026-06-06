@@ -58,8 +58,32 @@ public:
         return nullptr;
     }
 
-    void insert(OrdersAtPrice *entry) noexcept {
-        price_to_orders_at_price.at(priceToIndex(entry->price)) = entry;
+    void insert(Order *order) noexcept {
+        const auto at_price = find(order->price);
+        if (!at_price) {
+            order->next = order->prev = order;
+            auto new_orders_at_price =
+                orders_at_price_pool.allocate(order->side, order->price, order, nullptr, nullptr);
+            addOrdersAtPrice(new_orders_at_price);
+        } else {
+            auto first_order = (at_price ? at_price->first_order : nullptr);
+            first_order->prev->next = order;
+            order->prev = first_order->prev;
+            order->next = first_order;
+            first_order->prev = order;
+        }
+    }
+
+    void remove(Order *order) noexcept {
+        auto at_price = find(order->price);
+        if (order->prev == order) {  // only one element.
+            removeOrdersAtPrice(order->side, order->price);
+        } else {  // remove the link.
+            if (at_price->first_order == order) {
+                at_price->first_order = order->next;
+            }
+            order->disconnect();
+        }
     }
 
     void clear(Price price) noexcept { price_to_orders_at_price.at(priceToIndex(price)) = nullptr; }
@@ -82,7 +106,7 @@ public:
     }
 
     void addOrdersAtPrice(OrdersAtPrice *new_orders_at_price) noexcept {
-        insert(new_orders_at_price);
+        price_to_orders_at_price.at(priceToIndex(new_orders_at_price->price)) = new_orders_at_price;
 
         const auto best_orders_by_price =
             (new_orders_at_price->side == Side::BUY ? bids_by_price : asks_by_price);
@@ -143,17 +167,18 @@ public:
         }
     }
 
+    OrdersAtPrice *bids() const noexcept { return bids_by_price; }
+
+    OrdersAtPrice *asks() const noexcept { return asks_by_price; }
+
 private:
     std::size_t priceToIndex(Price price) const noexcept {
         return (type_safe::get(price) % MAX_PRICE_LEVELS);
     }
 
-public:  // temporary
     utils::MemPool<OrdersAtPrice> orders_at_price_pool;
     OrdersAtPrice *bids_by_price = nullptr;
     OrdersAtPrice *asks_by_price = nullptr;
-
-private:
     std::array<OrdersAtPrice *, MAX_PRICE_LEVELS> price_to_orders_at_price;
 };
 
