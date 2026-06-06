@@ -25,6 +25,8 @@ struct OrdersAtPrice : utils::LinkedList<OrdersAtPrice> {
     Side side = Side::INVALID;
     Price price = Price::INVALID;
     Order *first_order = nullptr;
+
+    Priority nextPriority() const noexcept { return first_order->prev->priority + Priority{1}; }
 };
 
 // Maps price to OrdersAtPrice. We can have multiple OrdersAtPrice for the same price, but they will
@@ -84,6 +86,14 @@ public:
             }
             order->disconnect();
         }
+    }
+
+    Priority nextPriority(Price price) noexcept {
+        const auto orders = find(price);
+        if (!orders) {
+            return Priority{1};
+        }
+        return orders->nextPriority();
     }
 
     void clear(Price price) noexcept { price_to_orders_at_price.at(priceToIndex(price)) = nullptr; }

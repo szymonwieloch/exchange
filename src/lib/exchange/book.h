@@ -29,7 +29,6 @@ public:
     OrderBook &operator=(const OrderBook &&) = delete;
 
 private:
-    Priority getNextPriority(Price price) noexcept;
     bool addOrder(Order *order) noexcept;
     void removeOrder(Order *order) noexcept;
     Quantity checkForMatch(UserId user_id, OrderId client_order_id, TickerId ticker_id, Side side,

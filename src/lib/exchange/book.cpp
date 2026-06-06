@@ -26,7 +26,7 @@ void OrderBook::add(UserId user_id, OrderId order_id, TickerId ticker_id, Side s
         checkForMatch(user_id, order_id, ticker_id, side, price, qty, new_market_order_id);
 
     if (leaves_qty != Quantity{0}) [[likely]] {
-        const auto priority = getNextPriority(price);
+        const auto priority = orders_at_price.nextPriority(price);
         auto order = order_pool.allocate(ticker_id, user_id, order_id, new_market_order_id, side,
                                          price, leaves_qty, priority, nullptr, nullptr);
         addOrder(order);
@@ -113,14 +113,6 @@ void OrderBook::match(TickerId ticker_id, UserId user_id, Side side, OrderId cli
                                               order->price, order->qty, order->priority);
         matching_engine->sendMarketUpdate(market_update);
     }
-}
-
-Priority OrderBook::getNextPriority(Price price) noexcept {
-    const auto orders = orders_at_price.find(price);
-    if (!orders) {
-        return Priority{1};
-    }
-    return orders->first_order->prev->priority + Priority{1};
 }
 
 bool OrderBook::addOrder(Order* order) noexcept {
