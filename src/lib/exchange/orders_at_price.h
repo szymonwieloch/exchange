@@ -71,10 +71,11 @@ public:
     /// (lowest priority) — the next candidate for matching.
     Order *first_order = nullptr;
 
-    OrdersAtPrice *next_idx = nullptr;
-    OrdersAtPrice *prev_idx = nullptr;
     OrdersAtPrice *next_ord = nullptr;
     OrdersAtPrice *prev_ord = nullptr;
+
+    OrdersAtPrice *getNextIdx() const noexcept { return next_idx; }
+    OrdersAtPrice *getPrevIdx() const noexcept { return prev_idx; }
 
     void disconnect() noexcept {
         if (prev_idx) {
@@ -83,7 +84,19 @@ public:
         if (next_idx) {
             next_idx->prev_idx = prev_idx;
         }
-        // TODO order
+        if (prev_ord) {
+            prev_ord->next_ord = next_ord;
+        }
+        if (next_ord) {
+            next_ord->prev_ord = prev_ord;
+        }
+    }
+
+    void insertIdx(OrdersAtPrice *first) noexcept {
+        if (first) {
+            first->prev_ord = this;
+            next_ord = first;
+        }
     }
 
     /// Returns the priority value that the next inserted order should carry.
@@ -141,6 +154,10 @@ public:
         assert(order->priority == first_order->getPrev()->priority + Priority(1));
         order->addToRing(first_order);
     }
+
+private:
+    OrdersAtPrice *next_idx = nullptr;
+    OrdersAtPrice *prev_idx = nullptr;
 };
 
 // Maps price to OrdersAtPrice. We can have multiple OrdersAtPrice for the same price, but they will
@@ -169,7 +186,7 @@ public:
             if (curr->price == price) {
                 return curr;
             }
-            curr = curr->next_idx;
+            curr = curr->getNextIdx();
         }
         return nullptr;
     }
@@ -208,17 +225,6 @@ public:
 
 private:
     void removeOrdersAtPrice(OrdersAtPrice *at_price) noexcept {
-        // const auto best_orders_by_price =
-        //     (at_price->side == Side::BUY ? bids_by_price : asks_by_price);
-        // if (at_price->next == at_price) [[unlikely]] {  // only element on this side.
-        //     (at_price->side == Side::BUY ? bids_by_price : asks_by_price) = nullptr;
-        // } else {
-        //     if (at_price == best_orders_by_price) {
-        //         (at_price->side == Side::BUY ? bids_by_price : asks_by_price) = at_price->next;
-        //     }
-        //     at_price->disconnect();
-        // }
-        // price_to_orders_at_price[priceToIndex(at_price->price)] = nullptr;
         if (at_price->side == Side::BUY) {
             if (bids_by_price == at_price) [[unlikely]] {
                 bids_by_price = at_price->next_ord;
@@ -230,7 +236,7 @@ private:
         }
         auto idx = priceToIndex(at_price->price);
         if (price_to_orders_at_price[idx] == at_price) {
-            price_to_orders_at_price[idx] = at_price->next_idx;
+            price_to_orders_at_price[idx] = at_price->getNextIdx();
         }
         at_price->disconnect();
         orders_at_price_pool.deallocate(at_price);
@@ -238,11 +244,7 @@ private:
 
     void addOrdersAtPrice(OrdersAtPrice *new_orders_at_price) noexcept {
         auto idx = priceToIndex(new_orders_at_price->price);
-        if (price_to_orders_at_price[idx]) {
-            // insert ast first element in the link list
-            new_orders_at_price->next_idx = price_to_orders_at_price[idx];
-            price_to_orders_at_price[idx]->prev_idx = new_orders_at_price;
-        }
+        new_orders_at_price->insertIdx(price_to_orders_at_price[idx]);
         price_to_orders_at_price[idx] = new_orders_at_price;
 
         // const auto best_orders_by_price =

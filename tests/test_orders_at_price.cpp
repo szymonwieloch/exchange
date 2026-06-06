@@ -64,23 +64,20 @@ TEST(OrdersAtPriceTest, LinkedListPrevNextSetCorrectly) {
     Order o = makeOrder(Side::BUY, Price(50), Priority(1));
     OrdersAtPrice level(Side::BUY, Price(50), &o);
 
-    EXPECT_EQ(level.prev_idx, nullptr);
-    EXPECT_EQ(level.next_idx, nullptr);
+    EXPECT_EQ(level.getPrevIdx(), nullptr);
+    EXPECT_EQ(level.getNextIdx(), nullptr);
 }
 
 TEST(OrdersAtPriceTest, LinkedListPrevNextSetToNeighbors) {
     Order o = makeOrder(Side::BUY, Price(50), Priority(1));
 
-    // Dummy neighbors to verify the pointers can be set directly
-    OrdersAtPrice dummyPrev;
     OrdersAtPrice dummyNext;
 
     OrdersAtPrice level(Side::BUY, Price(50), &o);
-    level.prev_idx = &dummyPrev;
-    level.next_idx = &dummyNext;
+    level.insertIdx(&dummyNext);
 
-    EXPECT_EQ(level.prev_idx, &dummyPrev);
-    EXPECT_EQ(level.next_idx, &dummyNext);
+    EXPECT_EQ(level.next_ord, &dummyNext);
+    EXPECT_EQ(dummyNext.prev_ord, &level);
 }
 
 // ===================================================================
