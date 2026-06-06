@@ -64,8 +64,8 @@ TEST(OrdersAtPriceTest, LinkedListPrevNextSetCorrectly) {
     Order o = makeOrder(Side::BUY, Price(50), Priority(1));
     OrdersAtPrice level(Side::BUY, Price(50), &o);
 
-    EXPECT_EQ(level.prev, nullptr);
-    EXPECT_EQ(level.next, nullptr);
+    EXPECT_EQ(level.prev_idx, nullptr);
+    EXPECT_EQ(level.next_idx, nullptr);
 }
 
 TEST(OrdersAtPriceTest, LinkedListPrevNextSetToNeighbors) {
@@ -76,11 +76,11 @@ TEST(OrdersAtPriceTest, LinkedListPrevNextSetToNeighbors) {
     OrdersAtPrice dummyNext;
 
     OrdersAtPrice level(Side::BUY, Price(50), &o);
-    level.prev = &dummyPrev;
-    level.next = &dummyNext;
+    level.prev_idx = &dummyPrev;
+    level.next_idx = &dummyNext;
 
-    EXPECT_EQ(level.prev, &dummyPrev);
-    EXPECT_EQ(level.next, &dummyNext);
+    EXPECT_EQ(level.prev_idx, &dummyPrev);
+    EXPECT_EQ(level.next_idx, &dummyNext);
 }
 
 // ===================================================================

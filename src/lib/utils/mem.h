@@ -50,6 +50,9 @@ public:
         if (count == store.size()) [[unlikely]] {
             return nullptr;  // pool exhausted
         }
+        if (!store[next_free_index].is_free) [[unlikely]] {
+            updateNextFreeIndex();  // recover from exhausted-then-freed state
+        }
         auto &objBlock = store[next_free_index];
         assert(objBlock.is_free);
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)

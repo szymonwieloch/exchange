@@ -71,11 +71,19 @@ public:
     /// (lowest priority) — the next candidate for matching.
     Order *first_order = nullptr;
 
-    OrdersAtPrice *next = nullptr;
-    OrdersAtPrice *prev = nullptr;
+    OrdersAtPrice *next_idx = nullptr;
+    OrdersAtPrice *prev_idx = nullptr;
+    OrdersAtPrice *next_ord = nullptr;
+    OrdersAtPrice *prev_ord = nullptr;
 
     void disconnect() noexcept {
-        // TODO
+        if (prev_idx) {
+            prev_idx->next_idx = next_idx;
+        }
+        if (next_idx) {
+            next_idx->prev_idx = prev_idx;
+        }
+        // TODO order
     }
 
     /// Returns the priority value that the next inserted order should carry.
@@ -161,7 +169,7 @@ public:
             if (curr->price == price) {
                 return curr;
             }
-            curr = curr->next;
+            curr = curr->next_idx;
         }
         return nullptr;
     }
@@ -200,80 +208,101 @@ public:
 
 private:
     void removeOrdersAtPrice(OrdersAtPrice *at_price) noexcept {
-        const auto best_orders_by_price =
-            (at_price->side == Side::BUY ? bids_by_price : asks_by_price);
-        if (at_price->next == at_price) [[unlikely]] {  // only element on this side.
-            (at_price->side == Side::BUY ? bids_by_price : asks_by_price) = nullptr;
-        } else {
-            if (at_price == best_orders_by_price) {
-                (at_price->side == Side::BUY ? bids_by_price : asks_by_price) = at_price->next;
+        // const auto best_orders_by_price =
+        //     (at_price->side == Side::BUY ? bids_by_price : asks_by_price);
+        // if (at_price->next == at_price) [[unlikely]] {  // only element on this side.
+        //     (at_price->side == Side::BUY ? bids_by_price : asks_by_price) = nullptr;
+        // } else {
+        //     if (at_price == best_orders_by_price) {
+        //         (at_price->side == Side::BUY ? bids_by_price : asks_by_price) = at_price->next;
+        //     }
+        //     at_price->disconnect();
+        // }
+        // price_to_orders_at_price[priceToIndex(at_price->price)] = nullptr;
+        if (at_price->side == Side::BUY) {
+            if (bids_by_price == at_price) [[unlikely]] {
+                bids_by_price = at_price->next_ord;
             }
-            at_price->disconnect();
+        } else {
+            if (asks_by_price == at_price) [[unlikely]] {
+                asks_by_price = at_price->next_ord;
+            }
         }
-        price_to_orders_at_price[priceToIndex(at_price->price)] = nullptr;
+        auto idx = priceToIndex(at_price->price);
+        if (price_to_orders_at_price[idx] == at_price) {
+            price_to_orders_at_price[idx] = at_price->next_idx;
+        }
+        at_price->disconnect();
         orders_at_price_pool.deallocate(at_price);
     }
 
     void addOrdersAtPrice(OrdersAtPrice *new_orders_at_price) noexcept {
-        price_to_orders_at_price.at(priceToIndex(new_orders_at_price->price)) = new_orders_at_price;
-
-        const auto best_orders_by_price =
-            (new_orders_at_price->side == Side::BUY ? bids_by_price : asks_by_price);
-
-        if (!best_orders_by_price) [[unlikely]] {
-            (new_orders_at_price->side == Side::BUY ? bids_by_price : asks_by_price) =
-                new_orders_at_price;
-            new_orders_at_price->prev = new_orders_at_price->next = new_orders_at_price;
+        auto idx = priceToIndex(new_orders_at_price->price);
+        if (price_to_orders_at_price[idx]) {
+            // insert ast first element in the link list
+            new_orders_at_price->next_idx = price_to_orders_at_price[idx];
+            price_to_orders_at_price[idx]->prev_idx = new_orders_at_price;
         }
+        price_to_orders_at_price[idx] = new_orders_at_price;
 
-        else {
-            auto target = best_orders_by_price;
-            bool add_after = ((new_orders_at_price->side == Side::SELL &&
-                               new_orders_at_price->price > target->price) ||
-                              (new_orders_at_price->side == Side::BUY &&
-                               new_orders_at_price->price < target->price));
-            if (add_after) {
-                target = target->next;
-                add_after = ((new_orders_at_price->side == Side::SELL &&
-                              new_orders_at_price->price > target->price) ||
-                             (new_orders_at_price->side == Side::BUY &&
-                              new_orders_at_price->price < target->price));
-            }
-            while (add_after && target != best_orders_by_price) {
-                add_after = ((new_orders_at_price->side == Side::SELL &&
-                              new_orders_at_price->price > target->price) ||
-                             (new_orders_at_price->side == Side::BUY &&
-                              new_orders_at_price->price < target->price));
-                if (add_after)
-                    target = target->next;
-            }
+        // const auto best_orders_by_price =
+        //     (new_orders_at_price->side == Side::BUY ? bids_by_price : asks_by_price);
 
-            if (add_after) {  // add new_orders_at_price after
-                              // target.
-                if (target == best_orders_by_price) {
-                    target = best_orders_by_price->prev;
-                }
-                new_orders_at_price->prev = target;
-                target->next->prev = new_orders_at_price;
-                new_orders_at_price->next = target->next;
-                target->next = new_orders_at_price;
-            } else {  // add new_orders_at_price before target.
-                new_orders_at_price->prev = target->prev;
-                new_orders_at_price->next = target;
-                target->prev->next = new_orders_at_price;
-                target->prev = new_orders_at_price;
+        // if (!best_orders_by_price) [[unlikely]] {
+        //     (new_orders_at_price->side == Side::BUY ? bids_by_price : asks_by_price) =
+        //         new_orders_at_price;
+        //     new_orders_at_price->prev = new_orders_at_price->next = new_orders_at_price;
+        // }
 
-                if ((new_orders_at_price->side == Side::BUY &&
-                     new_orders_at_price->price > best_orders_by_price->price) ||
-                    (new_orders_at_price->side == Side::SELL &&
-                     new_orders_at_price->price < best_orders_by_price->price)) {
-                    target->next =
-                        (target->next == best_orders_by_price ? new_orders_at_price : target->next);
-                    (new_orders_at_price->side == Side::BUY ? bids_by_price : asks_by_price) =
-                        new_orders_at_price;
-                }
-            }
-        }
+        // else {
+        //     auto target = best_orders_by_price;
+        //     bool add_after = ((new_orders_at_price->side == Side::SELL &&
+        //                        new_orders_at_price->price > target->price) ||
+        //                       (new_orders_at_price->side == Side::BUY &&
+        //                        new_orders_at_price->price < target->price));
+        //     if (add_after) {
+        //         target = target->next;
+        //         add_after = ((new_orders_at_price->side == Side::SELL &&
+        //                       new_orders_at_price->price > target->price) ||
+        //                      (new_orders_at_price->side == Side::BUY &&
+        //                       new_orders_at_price->price < target->price));
+        //     }
+        //     while (add_after && target != best_orders_by_price) {
+        //         add_after = ((new_orders_at_price->side == Side::SELL &&
+        //                       new_orders_at_price->price > target->price) ||
+        //                      (new_orders_at_price->side == Side::BUY &&
+        //                       new_orders_at_price->price < target->price));
+        //         if (add_after)
+        //             target = target->next;
+        //     }
+
+        //     if (add_after) {  // add new_orders_at_price after
+        //                       // target.
+        //         if (target == best_orders_by_price) {
+        //             target = best_orders_by_price->prev;
+        //         }
+        //         new_orders_at_price->prev = target;
+        //         target->next->prev = new_orders_at_price;
+        //         new_orders_at_price->next = target->next;
+        //         target->next = new_orders_at_price;
+        //     } else {  // add new_orders_at_price before target.
+        //         new_orders_at_price->prev = target->prev;
+        //         new_orders_at_price->next = target;
+        //         target->prev->next = new_orders_at_price;
+        //         target->prev = new_orders_at_price;
+
+        //         if ((new_orders_at_price->side == Side::BUY &&
+        //              new_orders_at_price->price > best_orders_by_price->price) ||
+        //             (new_orders_at_price->side == Side::SELL &&
+        //              new_orders_at_price->price < best_orders_by_price->price)) {
+        //             target->next =
+        //                 (target->next == best_orders_by_price ? new_orders_at_price :
+        //                 target->next);
+        //             (new_orders_at_price->side == Side::BUY ? bids_by_price : asks_by_price) =
+        //                 new_orders_at_price;
+        //         }
+        //     }
+        // }
     }
 
 private:
