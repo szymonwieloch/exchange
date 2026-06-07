@@ -1,6 +1,7 @@
 #include "book.h"
 
 #include "engine.h"
+#include "md.h"
 #include "request.h"
 
 namespace exchange {
