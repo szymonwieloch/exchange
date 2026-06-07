@@ -419,17 +419,21 @@ private:
         OrdersAtPrice *curr = head;
         OrdersAtPrice *insert_after = nullptr;
 
-        if (is_buy) {
-            // Walk forward while the current price is still better (higher) than the new price.
-            while (curr && new_orders_at_price->price < curr->price) {
-                insert_after = curr;
-                curr = curr->getNextOrd();
+        // Walk forward while the current price is still better than the new price.
+        // `curr` is known non-null here (head was validated above); the loop body
+        // sets `insert_after` before advancing, so `curr` only becomes null after
+        // `insert_after` is already set — the explicit `curr` null check is unnecessary.
+        for (;;) {
+            const bool is_better = is_buy ? new_orders_at_price->price < curr->price
+                                          : new_orders_at_price->price > curr->price;
+            if (!is_better) [[likely]] {
+                break;
             }
-        } else {
-            // Walk forward while the current price is still better (lower) than the new price.
-            while (curr && new_orders_at_price->price > curr->price) {
-                insert_after = curr;
-                curr = curr->getNextOrd();
+            insert_after = curr;
+            if (auto next = curr->getNextOrd()) {
+                curr = next;
+            } else {
+                break;
             }
         }
 

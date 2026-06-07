@@ -42,14 +42,14 @@ void OrderBook::cancel(UserId user_id, OrderId order_id, TickerId ticker_id) noe
         matching_engine->sendResponse(response);
         return;
     }
-    removeOrder(order);
     auto response = Response::canceled(user_id, ticker_id, order_id, order->market_order_id,
                                        order->side, order->price, order->qty);
-    matching_engine->sendResponse(response);
-
     auto market_update =
-        MDUpdate::cancel(order->market_order_id, ticker_id, order->side, order->price, Quantity(0));
+        MDUpdate::cancel(order->market_order_id, ticker_id, order->side, order->price, order->qty);
 
+    removeOrder(order);  // can remove only when the messages are created
+
+    matching_engine->sendResponse(response);
     matching_engine->sendMarketUpdate(market_update);
 }
 
@@ -57,28 +57,25 @@ Quantity OrderBook::checkForMatch(UserId user_id, OrderId client_order_id, Ticke
                                   Side side, Price price, Quantity qty,
                                   MarketOrderId new_market_order_id) noexcept {
     auto leaves_qty = qty;
-    if (side == Side::BUY) {
-        auto asks_by_price = orders_at_price.asks();
-        while (leaves_qty != Quantity{0} && asks_by_price) {
-            const auto ask_itr = asks_by_price->first_order;
-            if (price < ask_itr->price) [[likely]] {
-                break;
-            }
-            match(ticker_id, user_id, side, client_order_id, new_market_order_id, ask_itr,
-                  &leaves_qty);
-        }
-    }
 
-    if (side == Side::SELL) {
-        auto bids_by_price = orders_at_price.bids();
-        while (leaves_qty != Quantity{0} && bids_by_price) {
-            const auto bid_itr = bids_by_price->first_order;
-            if (price > bid_itr->price) [[likely]] {
-                break;
+    // The matching loop is identical for both sides except for:
+    //  - which list head to use (bids / asks),
+    //  - whether the price check is < or >.
+    // Extract it into a lambda to keep the hot path DRY without virtual dispatch.
+    auto match_side = [&](auto head, auto price_cond) {
+        while (leaves_qty != Quantity{0} && head) {
+            auto* itr = head->first_order;
+            if (price_cond(price, itr->price)) [[likely]] {
+                return;  // no more matchable prices on this side
             }
-            match(ticker_id, user_id, side, client_order_id, new_market_order_id, bid_itr,
-                  &leaves_qty);
+            match(ticker_id, user_id, side, client_order_id, new_market_order_id, itr, &leaves_qty);
         }
+    };
+
+    if (side == Side::BUY) {
+        match_side(orders_at_price.asks(), [](Price a, Price b) noexcept { return a < b; });
+    } else {
+        match_side(orders_at_price.bids(), [](Price a, Price b) noexcept { return a > b; });
     }
     return leaves_qty;
 }

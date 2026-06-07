@@ -41,6 +41,8 @@ private:
     UserOrderHashMap cid_oid_to_order;
     OrdersAtPriceHashMap orders_at_price;
     utils::MemPool<Order> order_pool;
+    // Start at 1 to reserve 0 as an unused/sentinel value (distinct from
+    // MarketOrderId::INVALID which is UINT64_MAX).
     MarketOrderId next_market_order_id{1};
     std::string time_str;
     utils::Logger *logger = nullptr;
