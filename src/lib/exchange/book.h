@@ -29,7 +29,7 @@ public:
     OrderBook &operator=(const OrderBook &&) = delete;
 
 private:
-    [[nodiscard]] bool addOrder(Order *order) noexcept;
+    [[nodiscard]] bool addOrder(Order *order, OrdersAtPrice *at_price_hint) noexcept;
     void removeOrder(Order *order, OrdersAtPrice *at_price_hint = nullptr) noexcept;
     [[nodiscard]] Quantity checkForMatch(UserId user_id, OrderId client_order_id,
                                          TickerId ticker_id, Side side, Price price, Quantity qty,

@@ -309,8 +309,18 @@ public:
     ///      @ref nextPriority(order->price).
     /// @pre The pool must not be exhausted (returns nullptr from allocate),
     ///      or the order will be silently dropped.
-    [[nodiscard]] bool insert(Order *order) noexcept {
-        const auto at_price = find(order->price);
+    [[nodiscard]] bool insert(Order *order) noexcept { return insert(order, find(order->price)); }
+
+    /// Inserts @p order using a pre-resolved price-level hint, avoiding a
+    /// redundant hash lookup in the hot path.
+    ///
+    /// @p at_price must be the result of a prior @ref find() or the second
+    /// element of @ref nextPriority()'s return pair. Pass nullptr when no
+    /// price level exists yet for this price.
+    ///
+    /// @pre @p at_price == nullptr || (at_price->price == order->price &&
+    ///      at_price->side == order->side)
+    [[nodiscard]] bool insert(Order *order, OrdersAtPrice *at_price) noexcept {
         if (!at_price) {
             auto new_orders_at_price =
                 orders_at_price_pool.allocate(order->side, order->price, order);
@@ -319,6 +329,8 @@ public:
             }
             addOrdersAtPrice(new_orders_at_price);
         } else {
+            assert(at_price->price == order->price);
+            assert(at_price->side == order->side);
             at_price->insert(order);
         }
         return true;
@@ -358,17 +370,21 @@ public:
         }
     }
 
-    /// Returns the priority that the next order at @p price would receive.
+    /// Returns the priority that the next order at @p price would receive,
+    /// together with the pre-resolved price level (or nullptr if none exists).
     ///
-    /// For a new price level this is @c Priority{1}. For an existing level
-    /// it is one greater than the last (newest) order's priority,
-    /// maintaining strict price-time ordering.
-    Priority nextPriority(Price price) const noexcept {
+    /// For a new price level the priority is @c Priority{1} and the pointer
+    /// is nullptr. For an existing level the priority is one greater than the
+    /// last (newest) order's priority, and the pointer points to that level.
+    ///
+    /// The returned pointer can be passed to the hinted @ref insert() overload
+    /// to avoid a redundant hash lookup in the hot path.
+    [[nodiscard]] std::pair<Priority, OrdersAtPrice *> nextPriority(Price price) const noexcept {
         const auto orders = find(price);
         if (!orders) {
-            return Priority{1};
+            return {Priority{1}, nullptr};
         }
-        return orders->nextPriority();
+        return {orders->nextPriority(), orders};
     }
 
     /// Head of the bid side's price-sorted list (best bid = highest price),

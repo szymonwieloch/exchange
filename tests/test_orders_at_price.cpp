@@ -756,7 +756,7 @@ TEST(OrdersAtPriceHashMapTest, RemoveLastOrderEmptiesSide) {
 
 TEST(OrdersAtPriceHashMapTest, NextPriorityForNewPriceIsOne) {
     OrdersAtPriceHashMap map;
-    EXPECT_EQ(map.nextPriority(Price(100)), Priority(1));
+    EXPECT_EQ(map.nextPriority(Price(100)).first, Priority(1));
 }
 
 TEST(OrdersAtPriceHashMapTest, NextPriorityForExistingPriceIncrements) {
@@ -765,10 +765,10 @@ TEST(OrdersAtPriceHashMapTest, NextPriorityForExistingPriceIncrements) {
     Order o2 = makeOrder(Side::BUY, Price(100), Priority(2));
 
     EXPECT_TRUE(map.insert(&o1));
-    EXPECT_EQ(map.nextPriority(Price(100)), Priority(2));
+    EXPECT_EQ(map.nextPriority(Price(100)).first, Priority(2));
 
     EXPECT_TRUE(map.insert(&o2));
-    EXPECT_EQ(map.nextPriority(Price(100)), Priority(3));
+    EXPECT_EQ(map.nextPriority(Price(100)).first, Priority(3));
 }
 
 // ===================================================================
