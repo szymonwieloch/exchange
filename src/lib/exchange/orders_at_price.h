@@ -276,8 +276,8 @@ public:
     }
 
     OrdersAtPriceHashMap(const OrdersAtPriceHashMap &) = delete;
-    OrdersAtPriceHashMap(const OrdersAtPriceHashMap &&) = delete;
-    OrdersAtPriceHashMap &operator=(const OrdersAtPriceHashMap &) = delete;
+    OrdersAtPriceHashMap(OrdersAtPriceHashMap &&) = delete;
+    OrdersAtPriceHashMap &operator=(OrdersAtPriceHashMap &&) = delete;
     OrdersAtPriceHashMap &operator=(const OrdersAtPriceHashMap &&) = delete;
 
     /// Looks up the @ref OrdersAtPrice for @p price, or returns nullptr.
@@ -334,6 +334,26 @@ public:
         if (at_price->hasSingleOrder()) {
             removeOrdersAtPrice(at_price);
         } else {  // remove the link.
+            at_price->remove(order);
+        }
+    }
+
+    /// Removes @p order from the order book using a pre-resolved price-level hint.
+    ///
+    /// Skips the hash lookup — the caller guarantees that @p at_price is the
+    /// @ref OrdersAtPrice containing @p order (e.g. obtained during matching
+    /// from the price-sorted chain head). Eliminates a redundant `find()` in
+    /// the hot matching path.
+    ///
+    /// @pre @p at_price->price == order->price
+    /// @pre @p at_price->side == order->side
+    void remove(Order *order, OrdersAtPrice *at_price) noexcept {
+        assert(at_price);
+        assert(at_price->price == order->price);
+        assert(at_price->side == order->side);
+        if (at_price->hasSingleOrder()) {
+            removeOrdersAtPrice(at_price);
+        } else {
             at_price->remove(order);
         }
     }

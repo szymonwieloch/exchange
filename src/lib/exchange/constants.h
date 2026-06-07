@@ -51,6 +51,10 @@ constexpr size_t MAX_ORDERS_PER_USER = 1024;
 /// an error.
 constexpr size_t MAX_ACTIVE_USERS = 1024;
 
+/// Number of hash buckets in the UserOrderHashMap. Must be a power of two for
+/// efficient modulo via bitmask.
+constexpr size_t USER_ORDER_HASH_BUCKETS = 256;
+
 static_assert(MAX_ORDERS_PER_USER * MAX_ACTIVE_USERS > MAX_ORDER_IDS,
               "pointless allocation of too many orders");
 

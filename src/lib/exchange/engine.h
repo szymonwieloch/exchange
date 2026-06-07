@@ -1,5 +1,7 @@
 #pragma once
 
+#include <atomic>
+
 #include "book.h"
 #include "definitions.h"
 #include "lib/utils/log.h"
@@ -22,8 +24,8 @@ public:
     // assignment-operators.
     MatchingEngine() = delete;
     MatchingEngine(const MatchingEngine &) = delete;
-    MatchingEngine(const MatchingEngine &&) = delete;
-    MatchingEngine &operator=(const MatchingEngine &) = delete;
+    MatchingEngine(MatchingEngine &&) = delete;
+    MatchingEngine &operator=(MatchingEngine &&) = delete;
     MatchingEngine &operator=(const MatchingEngine &&) = delete;
 
 private:
@@ -32,7 +34,7 @@ private:
     RequestLFQueue *incoming_requests = nullptr;
     ResponseLFQueue *outgoing_ogw_responses = nullptr;
     MDLFQueue *outgoing_md_updates = nullptr;
-    volatile bool is_running = false;
+    std::atomic<bool> is_running = false;
     std::string time_str;
     utils::Logger logger;
     OrderBookHashMap ticker_order_book;

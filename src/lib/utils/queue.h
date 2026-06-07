@@ -49,7 +49,7 @@ public:
     LFQueue() = delete;
     LFQueue(const LFQueue&) = delete;
     LFQueue(const LFQueue&&) = delete;
-    LFQueue& operator=(const LFQueue&) = delete;
+    LFQueue& operator=(LFQueue&&) = delete;
     LFQueue& operator=(const LFQueue&&) = delete;
 
     /// Returns a pointer to the next writable slot.

@@ -69,7 +69,8 @@ Quantity OrderBook::checkForMatch(UserId user_id, OrderId client_order_id, Ticke
             if (price_cond(price, itr->price)) [[likely]] {
                 return;  // no more matchable prices on this side
             }
-            match(ticker_id, user_id, side, client_order_id, new_market_order_id, itr, &leaves_qty);
+            match(ticker_id, user_id, side, client_order_id, new_market_order_id, head, itr,
+                  &leaves_qty);
         }
     };
 
@@ -82,7 +83,7 @@ Quantity OrderBook::checkForMatch(UserId user_id, OrderId client_order_id, Ticke
 }
 
 void OrderBook::match(TickerId ticker_id, UserId user_id, Side side, OrderId client_order_id,
-                      MarketOrderId new_market_order_id, Order* itr,
+                      MarketOrderId new_market_order_id, OrdersAtPrice* price_level, Order* itr,
                       Quantity* leaves_qty) noexcept {
     const auto order = itr;
     const auto order_qty = order->qty;
@@ -105,7 +106,7 @@ void OrderBook::match(TickerId ticker_id, UserId user_id, Side side, OrderId cli
         auto market_update = MDUpdate::cancel(order->market_order_id, ticker_id, order->side,
                                               order->price, order_qty);
         matching_engine->sendMarketUpdate(market_update);
-        removeOrder(order);
+        removeOrder(order, price_level);
     } else {
         auto market_update = MDUpdate::modify(order->market_order_id, ticker_id, order->side,
                                               order->price, order->qty, order->priority);
@@ -124,9 +125,13 @@ bool OrderBook::addOrder(Order* order) noexcept {
     return true;
 }
 
-void OrderBook::removeOrder(Order* order) noexcept {
+void OrderBook::removeOrder(Order* order, OrdersAtPrice* at_price_hint) noexcept {
     cid_oid_to_order.remove(order->user_id, order->order_id);
-    orders_at_price.remove(order);
+    if (at_price_hint) {
+        orders_at_price.remove(order, at_price_hint);
+    } else {
+        orders_at_price.remove(order);
+    }
     order_pool.deallocate(order);
 }
 

@@ -64,7 +64,7 @@ struct Response {
                         .leaves_qty = qty};
     }
 
-    static Response cancelRejected(UserId user_id, TickerId ticker_id, OrderId order_id) {
+    static Response cancelRejected(UserId user_id, TickerId ticker_id, OrderId order_id) noexcept {
         return Response{
             .type = ResponseType::CANCEL_REJECTED,
             .user_id = user_id,

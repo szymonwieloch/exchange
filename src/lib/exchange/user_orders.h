@@ -217,12 +217,9 @@ public:
     }
 
 private:
-    /// Number of hash buckets. Must be a power of two for efficient modulo.
-    static constexpr std::size_t SIZE = 256;  // TODO: move to constants
-
     /// Bucket array — each entry is the head of a separate-chain list of
     /// UserOrders.
-    std::array<UserOrders *, SIZE> user_to_orders{};
+    std::array<UserOrders *, USER_ORDER_HASH_BUCKETS> user_to_orders{};
 
     /// Pool for UserOrders objects. Sized to MAX_ACTIVE_USERS so the total
     /// number of simultaneously active users is bounded.

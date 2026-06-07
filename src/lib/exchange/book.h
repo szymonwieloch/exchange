@@ -24,17 +24,18 @@ public:
     // Deleted default, copy & move constructors and assignment-operators.
     OrderBook() = delete;
     OrderBook(const OrderBook &) = delete;
-    OrderBook(const OrderBook &&) = delete;
-    OrderBook &operator=(const OrderBook &) = delete;
+    OrderBook(OrderBook &&) = delete;
+    OrderBook &operator=(OrderBook &&) = delete;
     OrderBook &operator=(const OrderBook &&) = delete;
 
 private:
     bool addOrder(Order *order) noexcept;
-    void removeOrder(Order *order) noexcept;
+    void removeOrder(Order *order, OrdersAtPrice *at_price_hint = nullptr) noexcept;
     Quantity checkForMatch(UserId user_id, OrderId client_order_id, TickerId ticker_id, Side side,
                            Price price, Quantity qty, MarketOrderId new_market_order_id) noexcept;
     void match(TickerId ticker_id, UserId user_id, Side side, OrderId client_order_id,
-               MarketOrderId new_market_order_id, Order *itr, Quantity *leaves_qty) noexcept;
+               MarketOrderId new_market_order_id, OrdersAtPrice *price_level, Order *itr,
+               Quantity *leaves_qty) noexcept;
 
     TickerId ticker_id = TickerId::INVALID;
     MatchingEngine *matching_engine = nullptr;
@@ -58,8 +59,8 @@ public:
         }
     }
     OrderBookHashMap(const OrderBookHashMap &) = delete;
-    OrderBookHashMap(const OrderBookHashMap &&) = delete;
-    OrderBookHashMap &operator=(const OrderBookHashMap &) = delete;
+    OrderBookHashMap(OrderBookHashMap &&) = delete;
+    OrderBookHashMap &operator=(OrderBookHashMap &&) = delete;
     OrderBookHashMap &operator=(const OrderBookHashMap &&) = delete;
 
     OrderBook *find(TickerId ticker_id) const noexcept {
