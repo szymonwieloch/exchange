@@ -106,13 +106,12 @@ void OrderBook::match(TickerId ticker_id, UserId user_id, Side side, OrderId cli
     *leaves_qty -= fill_qty;
     order->qty -= fill_qty;
 
-    sendResponse(Response::filled(user_id, ticker_id, client_order_id,
-                                  new_market_order_id, side, itr->price, fill_qty,
-                                  *leaves_qty));
+    sendResponse(Response::filled(user_id, ticker_id, client_order_id, new_market_order_id, side,
+                                  itr->price, fill_qty, *leaves_qty));
 
     sendResponse(Response::filled(order->user_id, ticker_id, order->order_id,
-                                  order->market_order_id, order->side, itr->price,
-                                  fill_qty, order->qty));
+                                  order->market_order_id, order->side, itr->price, fill_qty,
+                                  order->qty));
 
     auto market_update = MDUpdate::trade(ticker_id, side, itr->price, fill_qty);
     sendMarketUpdate(market_update);
