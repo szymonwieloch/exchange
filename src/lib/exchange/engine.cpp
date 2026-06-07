@@ -7,7 +7,7 @@ MatchingEngine::MatchingEngine(RequestLFQueue *client_requests, ResponseLFQueue 
       outgoing_ogw_responses(client_responses),
       outgoing_md_updates(market_updates),
       logger("exchange_matching_engine.log"),
-      ticker_order_book(&logger, this) {}
+      ticker_order_book(&logger, outgoing_ogw_responses, outgoing_md_updates) {}
 
 MatchingEngine::~MatchingEngine() {
     is_running = false;
@@ -61,16 +61,6 @@ void MatchingEngine::processClientRequest(const Request *client_request) noexcep
             utils::die("Received invalid request-type");
         } break;
     }
-}
-
-void MatchingEngine::sendResponse(const Response &response) noexcept {
-    *outgoing_ogw_responses->getNextToWriteTo() = response;
-    outgoing_ogw_responses->updateWriteIndex();
-}
-
-void MatchingEngine::sendMarketUpdate(const MDUpdate &market_update) noexcept {
-    *outgoing_md_updates->getNextToWriteTo() = market_update;
-    outgoing_md_updates->updateWriteIndex();
 }
 
 }  // namespace exchange

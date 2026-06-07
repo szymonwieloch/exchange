@@ -1,20 +1,20 @@
 #include "book.h"
 
-#include "engine.h"
 #include "md.h"
 #include "request.h"
 
 namespace exchange {
-OrderBook::OrderBook(TickerId ticker_id, utils::Logger* logger, MatchingEngine* matching_engine)
+OrderBook::OrderBook(TickerId ticker_id, utils::Logger* logger, ResponseLFQueue* responses,
+                     MDLFQueue* market_updates)
     : ticker_id(ticker_id),
-      matching_engine(matching_engine),
+      responses(responses),
+      market_updates(market_updates),
       order_pool(MAX_ORDER_IDS),
       logger(logger) {}
 
 OrderBook::~OrderBook() {
     // logger->log("%:% %() % OrderBook\n%\n", __FILE__, __LINE__, __FUNCTION__,
     //             utils::getCurrentTimeStr(&time_str), toString(false, true));
-    matching_engine = nullptr;
 }
 
 bool OrderBook::add(UserId user_id, OrderId order_id, TickerId ticker_id, Side side, Price price,
@@ -22,7 +22,7 @@ bool OrderBook::add(UserId user_id, OrderId order_id, TickerId ticker_id, Side s
     const auto new_market_order_id = generateNewMarketOrderId();
     auto response =
         Response::accepted(user_id, ticker_id, order_id, new_market_order_id, side, price, qty);
-    matching_engine->sendResponse(response);
+    sendResponse(response);
     const auto leaves_qty =
         checkForMatch(user_id, order_id, ticker_id, side, price, qty, new_market_order_id);
 
@@ -35,7 +35,7 @@ bool OrderBook::add(UserId user_id, OrderId order_id, TickerId ticker_id, Side s
             return false;
         }
         auto market_update = MDUpdate::add(ticker_id, side, price, leaves_qty, priority);
-        matching_engine->sendMarketUpdate(market_update);
+        sendMarketUpdate(market_update);
     }
     return true;
 }
@@ -44,7 +44,7 @@ void OrderBook::cancel(UserId user_id, OrderId order_id, TickerId ticker_id) noe
     auto order = cid_oid_to_order.find(user_id, order_id);
     if (!order) [[unlikely]] {
         Response response = Response::cancelRejected(user_id, ticker_id, order_id);
-        matching_engine->sendResponse(response);
+        sendResponse(response);
         return;
     }
     auto response = Response::canceled(user_id, ticker_id, order_id, order->market_order_id,
@@ -54,8 +54,8 @@ void OrderBook::cancel(UserId user_id, OrderId order_id, TickerId ticker_id) noe
 
     removeOrder(order);  // can remove only when the messages are created
 
-    matching_engine->sendResponse(response);
-    matching_engine->sendMarketUpdate(market_update);
+    sendResponse(response);
+    sendMarketUpdate(market_update);
 }
 
 Quantity OrderBook::checkForMatch(UserId user_id, OrderId client_order_id, TickerId ticker_id,
@@ -106,26 +106,26 @@ void OrderBook::match(TickerId ticker_id, UserId user_id, Side side, OrderId cli
     *leaves_qty -= fill_qty;
     order->qty -= fill_qty;
 
-    matching_engine->sendResponse(Response::filled(user_id, ticker_id, client_order_id,
-                                                   new_market_order_id, side, itr->price, fill_qty,
-                                                   *leaves_qty));
+    sendResponse(Response::filled(user_id, ticker_id, client_order_id,
+                                  new_market_order_id, side, itr->price, fill_qty,
+                                  *leaves_qty));
 
-    matching_engine->sendResponse(Response::filled(order->user_id, ticker_id, order->order_id,
-                                                   order->market_order_id, order->side, itr->price,
-                                                   fill_qty, order->qty));
+    sendResponse(Response::filled(order->user_id, ticker_id, order->order_id,
+                                  order->market_order_id, order->side, itr->price,
+                                  fill_qty, order->qty));
 
     auto market_update = MDUpdate::trade(ticker_id, side, itr->price, fill_qty);
-    matching_engine->sendMarketUpdate(market_update);
+    sendMarketUpdate(market_update);
 
     if (order->qty == Quantity{0}) {
         auto market_update = MDUpdate::cancel(order->market_order_id, ticker_id, order->side,
                                               order->price, order_qty);
-        matching_engine->sendMarketUpdate(market_update);
+        sendMarketUpdate(market_update);
         removeOrder(order, price_level);
     } else {
         auto market_update = MDUpdate::modify(order->market_order_id, ticker_id, order->side,
                                               order->price, order->qty, order->priority);
-        matching_engine->sendMarketUpdate(market_update);
+        sendMarketUpdate(market_update);
     }
 }
 
@@ -148,6 +148,16 @@ void OrderBook::removeOrder(Order* order, OrdersAtPrice* at_price_hint) noexcept
         orders_at_price.remove(order);
     }
     order_pool.deallocate(order);
+}
+
+void OrderBook::sendResponse(const Response& response) noexcept {
+    *responses->getNextToWriteTo() = response;
+    responses->updateWriteIndex();
+}
+
+void OrderBook::sendMarketUpdate(const MDUpdate& market_update) noexcept {
+    *market_updates->getNextToWriteTo() = market_update;
+    market_updates->updateWriteIndex();
 }
 
 }  // namespace exchange

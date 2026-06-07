@@ -17,8 +17,6 @@ public:
     void start();
     void stop();
     void processClientRequest(const Request *client_request) noexcept;
-    void sendResponse(const Response &response) noexcept;
-    void sendMarketUpdate(const MDUpdate &market_update) noexcept;
 
     // Deleted default, copy & move constructors and
     // assignment-operators.
