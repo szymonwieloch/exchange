@@ -15,8 +15,8 @@ class OrderBook final {
 public:
     OrderBook(TickerId ticker_id, utils::Logger *logger, MatchingEngine *matching_engine);
     ~OrderBook();
-    void add(UserId client_id, OrderId order_id, TickerId ticker_id, Side side, Price price,
-             Quantity qty) noexcept;
+    [[nodiscard]] bool add(UserId client_id, OrderId order_id, TickerId ticker_id, Side side,
+                           Price price, Quantity qty) noexcept;
     void cancel(UserId client_id, OrderId order_id, TickerId ticker_id) noexcept;
 
     MarketOrderId generateNewMarketOrderId() noexcept { return next_market_order_id++; }
@@ -29,10 +29,11 @@ public:
     OrderBook &operator=(const OrderBook &&) = delete;
 
 private:
-    bool addOrder(Order *order) noexcept;
+    [[nodiscard]] bool addOrder(Order *order) noexcept;
     void removeOrder(Order *order, OrdersAtPrice *at_price_hint = nullptr) noexcept;
-    Quantity checkForMatch(UserId user_id, OrderId client_order_id, TickerId ticker_id, Side side,
-                           Price price, Quantity qty, MarketOrderId new_market_order_id) noexcept;
+    [[nodiscard]] Quantity checkForMatch(UserId user_id, OrderId client_order_id,
+                                         TickerId ticker_id, Side side, Price price, Quantity qty,
+                                         MarketOrderId new_market_order_id) noexcept;
     void match(TickerId ticker_id, UserId user_id, Side side, OrderId client_order_id,
                MarketOrderId new_market_order_id, OrdersAtPrice *price_level, Order *itr,
                Quantity *leaves_qty) noexcept;
@@ -42,10 +43,7 @@ private:
     UserOrderHashMap cid_oid_to_order;
     OrdersAtPriceHashMap orders_at_price;
     utils::MemPool<Order> order_pool;
-    // Start at 1 to reserve 0 as an unused/sentinel value (distinct from
-    // MarketOrderId::INVALID which is UINT64_MAX).
-    MarketOrderId next_market_order_id{1};
-    std::string time_str;
+    MarketOrderId next_market_order_id{0};
     utils::Logger *logger = nullptr;
 };
 
@@ -61,7 +59,7 @@ public:
     OrderBookHashMap(const OrderBookHashMap &) = delete;
     OrderBookHashMap(OrderBookHashMap &&) = delete;
     OrderBookHashMap &operator=(OrderBookHashMap &&) = delete;
-    OrderBookHashMap &operator=(const OrderBookHashMap &&) = delete;
+    OrderBookHashMap &operator=(const OrderBookHashMap &) = delete;
 
     OrderBook *find(TickerId ticker_id) const noexcept {
         return ticker_to_order_book.at(type_safe::get(ticker_id)).get();

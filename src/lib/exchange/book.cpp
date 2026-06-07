@@ -17,7 +17,7 @@ OrderBook::~OrderBook() {
     matching_engine = nullptr;
 }
 
-void OrderBook::add(UserId user_id, OrderId order_id, TickerId ticker_id, Side side, Price price,
+bool OrderBook::add(UserId user_id, OrderId order_id, TickerId ticker_id, Side side, Price price,
                     Quantity qty) noexcept {
     const auto new_market_order_id = generateNewMarketOrderId();
     auto response =
@@ -30,10 +30,14 @@ void OrderBook::add(UserId user_id, OrderId order_id, TickerId ticker_id, Side s
         const auto priority = orders_at_price.nextPriority(price);
         auto order = order_pool.allocate(ticker_id, user_id, order_id, new_market_order_id, side,
                                          price, leaves_qty, priority);
-        addOrder(order);
+        if (!addOrder(order)) [[unlikely]] {
+            order_pool.deallocate(order);
+            return false;
+        }
         auto market_update = MDUpdate::add(ticker_id, side, price, leaves_qty, priority);
         matching_engine->sendMarketUpdate(market_update);
     }
+    return true;
 }
 
 void OrderBook::cancel(UserId user_id, OrderId order_id, TickerId ticker_id) noexcept {

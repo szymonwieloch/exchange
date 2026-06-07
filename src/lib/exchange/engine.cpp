@@ -48,9 +48,9 @@ void MatchingEngine::processClientRequest(const Request *client_request) noexcep
     auto &order_book = *ticker_order_book.find(client_request->ticker_id);
     switch (client_request->type) {
         case RequestType::NEW: {
-            order_book.add(client_request->user_id, client_request->order_id,
-                           client_request->ticker_id, client_request->side, client_request->price,
-                           client_request->qty);
+            (void)order_book.add(client_request->user_id, client_request->order_id,
+                                 client_request->ticker_id, client_request->side,
+                                 client_request->price, client_request->qty);
 
         } break;
         case RequestType::CANCEL: {
