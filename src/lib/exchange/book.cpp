@@ -119,7 +119,10 @@ bool OrderBook::addOrder(Order* order) noexcept {
     if (!cid_oid_to_order.insert(order)) [[unlikely]] {
         return false;
     }
-    orders_at_price.insert(order);
+    if (!orders_at_price.insert(order)) [[unlikely]] {
+        cid_oid_to_order.remove(order->user_id, order->order_id);
+        return false;
+    }
     return true;
 }
 

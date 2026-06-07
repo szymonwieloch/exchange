@@ -80,47 +80,47 @@ TEST(MemPoolTest, DeallocateAllowsReuse) {
     auto *first = pool.allocate(10);
     pool.deallocate(first);
 
-    // next_free_index is still at slot 1, so the next allocate uses slot 1.
+    // LIFO stack: the just-freed slot (index 0) is reused immediately.
     auto *second = pool.allocate(20);
-    EXPECT_NE(first, second);
+    EXPECT_EQ(first, second);
+    EXPECT_EQ(second->value, 20);
 
-    // Deallocate both; next allocate wraps around to slot 0.
+    // Deallocate both; allocate again reuses the most recently freed slot.
     pool.deallocate(second);
     auto *third = pool.allocate(30);
-    EXPECT_EQ(first, third);
+    EXPECT_EQ(second, third);
     EXPECT_EQ(third->value, 30);
 }
 
-// ── Wrap-around ─────────────────────────────────────────────────
-TEST(MemPoolTest, WrapAroundAfterFullCycle) {
+// ── LIFO reuse ──────────────────────────────────────────────────
+TEST(MemPoolTest, LIFOReuseAfterPartialFree) {
     MemPool<Payload> pool(5);
 
     auto *obj1 = pool.allocate(1);
     auto *obj2 = pool.allocate(2);
     auto *obj3 = pool.allocate(3);
 
-    // Free obj1 and obj2; obj3 (slot 2) remains occupied.
+    // Free obj1 then obj2; LIFO stack means obj2's slot is on top.
     pool.deallocate(obj1);
     pool.deallocate(obj2);
 
     auto *obj4 = pool.allocate(4);
     auto *obj5 = pool.allocate(5);
 
-    // After allocate(obj3), next_free_index advanced past slot 2 to slot 3
-    // (free). So obj4 should land in slot 3, not slot 0 (obj1's old slot).
+    // obj4 reuses obj2's slot (most recently freed), obj5 reuses obj1's slot.
+    EXPECT_EQ(obj4, obj2);
+    EXPECT_EQ(obj5, obj1);
+
     EXPECT_EQ(obj4->value, 4);
     EXPECT_EQ(obj5->value, 5);
 
     // obj3 should still hold its original value.
     EXPECT_EQ(obj3->value, 3);
 
-    // All pointers should be distinct from each other.
-    EXPECT_NE(obj4, obj1);
-    EXPECT_NE(obj4, obj2);
+    // All allocated pointers should be distinct from each other.
     EXPECT_NE(obj4, obj3);
-    EXPECT_NE(obj5, obj1);
-    EXPECT_NE(obj5, obj2);
     EXPECT_NE(obj5, obj3);
+    EXPECT_NE(obj4, obj5);
 }
 
 // ── Exhaustion ──────────────────────────────────────────────────

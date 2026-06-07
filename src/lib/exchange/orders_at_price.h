@@ -309,15 +309,19 @@ public:
     ///      @ref nextPriority(order->price).
     /// @pre The pool must not be exhausted (returns nullptr from allocate),
     ///      or the order will be silently dropped.
-    void insert(Order *order) noexcept {
+    [[nodiscard]] bool insert(Order *order) noexcept {
         const auto at_price = find(order->price);
         if (!at_price) {
             auto new_orders_at_price =
                 orders_at_price_pool.allocate(order->side, order->price, order);
+            if (!new_orders_at_price) [[unlikely]] {
+                return false;
+            }
             addOrdersAtPrice(new_orders_at_price);
         } else {
             at_price->insert(order);
         }
+        return true;
     }
 
     /// Removes @p order from the order book.
