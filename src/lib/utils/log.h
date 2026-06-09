@@ -12,53 +12,15 @@
 #include "thread.h"
 
 namespace utils {
-typedef int64_t Nanos;
-constexpr Nanos NANOS_TO_MICROS = 1000;
-constexpr Nanos MICROS_TO_MILLIS = 1000;
-constexpr Nanos MILLIS_TO_SECS = 1000;
-constexpr Nanos NANOS_TO_MILLIS = NANOS_TO_MICROS * MICROS_TO_MILLIS;
-constexpr Nanos NANOS_TO_SECS = NANOS_TO_MILLIS * MILLIS_TO_SECS;
-inline auto getCurrentNanos() noexcept {
-    return std::chrono::duration_cast<std::chrono::nanoseconds>(
-               std::chrono::system_clock::now().time_since_epoch())
-        .count();
-}
-inline auto &getCurrentTimeStr(std::string *time_str) {
-    const auto time = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-    time_str->assign(ctime(&time));
-    if (!time_str->empty())
-        time_str->at(time_str->length() - 1) = '\0';
-    return *time_str;
-}
-
 constexpr size_t LOG_QUEUE_SIZE = 8 * 1024 * 1024;
 
-enum class LogType : int8_t {
-    CHAR = 0,
-    INTEGER = 1,
-    LONG_INTEGER = 2,
-    LONG_LONG_INTEGER = 3,
-    UNSIGNED_INTEGER = 4,
-    UNSIGNED_LONG_INTEGER = 5,
-    UNSIGNED_LONG_LONG_INTEGER = 6,
-    FLOAT = 7,
-    DOUBLE = 8
+enum class LogType : int8_t { NEW_LOG = 0, U64 = 1, I64 = 2, DOUBLE = 3, CHAR = 4, STR = 5 };
+
+struct NewLog {
+    const char *fmt;
 };
 
-struct LogElement {
-    LogType type = LogType::CHAR;
-    union {
-        char c;
-        int i;
-        long l;
-        long long ll;
-        unsigned u;
-        unsigned long ul;
-        unsigned long long ull;
-        float f;
-        double d;
-    } u;
-};
+using LogElement = std::variant<NewLog, std::uint64_t, std::int64_t, double, char, const char *>;
 
 class Logger final {
     Logger() = delete;
@@ -70,122 +32,140 @@ class Logger final {
 public:
     explicit Logger(const std::string &file_name) : file_name(file_name), queue(LOG_QUEUE_SIZE) {
         file.open(file_name);
-        assert(file.is_open());
-        // TODO: logger_thread = createAndStartThread(-1, "Common/Logger", [this]() { flushQueue();
-        // });
-        // assert(logger_thread != nullptr);
+        if (!file.is_open()) {
+            die("Could not open log file");
+        }
+        logger_thread = std::thread([this]() { flushQueue(); });
     }
 
     ~Logger() {
         std::cerr << "Flushing and closing Logger for " << file_name << std::endl;
         while (queue.size()) {
             using namespace std::literals::chrono_literals;
-            std::this_thread::sleep_for(1s);
+            std::this_thread::sleep_for(10ms);
         }
         running = false;
-        logger_thread->join();
+        logger_thread.join();
         file.close();
     }
 
-    auto flushQueue() noexcept {
+    void flushQueue() noexcept {
         while (running) {
+            bool dirty = false;
             for (auto next = queue.getNextToRead(); queue.size() && next;
                  next = queue.getNextToRead()) {
-                switch (next->type) {
-                    case LogType::CHAR:
-                        file << next->u.c;
+                dirty = true;
+                switch ((LogType)next->index()) {
+                    case LogType::NEW_LOG:
+                        file << '\n'
+                             << std::chrono::system_clock::now() << ": "
+                             << std::get<NewLog>(*next).fmt;
                         break;
-                    case LogType::INTEGER:
-                        file << next->u.i;
+                    case LogType::U64:
+                        file << std::get<std::uint64_t>(*next);
                         break;
-                    case LogType::LONG_INTEGER:
-                        file << next->u.l;
-                        break;
-                    case LogType::LONG_LONG_INTEGER:
-                        file << next->u.ll;
-                        break;
-                    case LogType::UNSIGNED_INTEGER:
-                        file << next->u.u;
-                        break;
-                    case LogType::UNSIGNED_LONG_INTEGER:
-                        file << next->u.ul;
-                        break;
-                    case LogType::UNSIGNED_LONG_LONG_INTEGER:
-                        file << next->u.ull;
-                        break;
-                    case LogType::FLOAT:
-                        file << next->u.f;
+                    case LogType::I64:
+                        file << std::get<std::int64_t>(*next);
                         break;
                     case LogType::DOUBLE:
-                        file << next->u.d;
+                        file << std::get<double>(*next);
+                        break;
+                    case LogType::CHAR:
+                        file << std::get<char>(*next);
+                        break;
+                    case LogType::STR:
+                        file << std::get<const char *>(*next);
                         break;
                 }
                 queue.updateReadIndex();
                 next = queue.getNextToRead();
             }
-            using namespace std::literals::chrono_literals;
-            std::this_thread::sleep_for(1ms);
+            if (dirty) {
+                file.flush();
+                dirty = false;
+            } else {
+                using namespace std::literals::chrono_literals;
+                std::this_thread::sleep_for(1ms);
+            }
         }
     }
 
-    void pushValue(const LogElement &log_element) noexcept {
-        *(queue.getNextToWriteTo()) = log_element;
+    /// Pieces of a format string, built once per log() call.
+    ///
+    /// The constructor splits @p s on every unescaped '%', collapsing '%%' → '%'.
+    /// Because the constructor is constexpr, the compiler will constant-fold the
+    /// result when called with a string literal — effectively free at runtime.
+    template <size_t N>
+    struct FormatStr final {
+        char storage[N]{};
+        /// Pointers to null-terminated pieces (worst-case: every char is a
+        /// separate specifier).
+        const char *pieces[N]{};
+        /// Actual number of pieces (= number of unescaped '%' + 1).
+        size_t pieceCount = 0;
+
+        constexpr FormatStr(const char (&s)[N]) noexcept {
+            size_t storePos = 0;
+
+            pieces[pieceCount] = &storage[storePos];
+            for (size_t i = 0; i < N - 1; ++i) {
+                if (s[i] == '%') {
+                    if (i + 1 < N - 1 && s[i + 1] == '%') {
+                        storage[storePos++] = '%';  // collapse %% → %
+                        ++i;
+                    } else {
+                        storage[storePos++] = '\0';  // terminate piece
+                        ++pieceCount;
+                        pieces[pieceCount] = &storage[storePos];
+                    }
+                } else {
+                    storage[storePos++] = s[i];
+                }
+            }
+            storage[storePos] = '\0';  // terminate last piece
+            ++pieceCount;              // account for the final piece
+        }
+    };
+
+    /// Push any LogElement-compatible value to the queue.
+    void pushVal(const auto &val) noexcept {
+        *(queue.getNextToWriteTo()) = val;
         queue.updateWriteIndex();
     }
 
-    void pushValue(const char value) noexcept {
-        pushValue(LogElement{LogType::CHAR, {.c = value}});
+    /// Plain string or format string with specifiers.
+    ///
+    /// The format string is parsed into pieces by FormatStr's constexpr
+    /// constructor.  Argument-count mismatches are caught via assert in
+    /// debug builds.
+    template <size_t N, typename... A>
+    auto log(const char (&s)[N], A... args) noexcept {
+        const FormatStr<N> fmt{s};
+        assert(fmt.pieceCount == 1 + sizeof...(A) &&
+               "Number of '%' format specifiers must equal the number of arguments");
+        logImpl<0>(fmt, args...);
     }
 
-    void pushValue(const char *value) noexcept {
-        while (*value) {
-            pushValue(*value);
-            ++value;
-        }
+private:
+    /// Push piece[Idx] (NewLog for Idx==0, otherwise const char*),
+    /// then the value, then recurse for remaining piece/value pairs.
+    template <size_t Idx, size_t SN, typename T, typename... A>
+    auto logImpl(const FormatStr<SN> &fmt, const T &value, A... args) noexcept {
+        if constexpr (Idx == 0)
+            pushVal(NewLog{fmt.pieces[Idx]});
+        else
+            pushVal(fmt.pieces[Idx]);
+        pushVal(value);
+        logImpl<Idx + 1>(fmt, args...);
     }
 
-    void pushValue(const std::string &value) noexcept { pushValue(value.c_str()); }
-
-    void pushValue(const int value) noexcept {
-        pushValue(LogElement{LogType::INTEGER, {.i = value}});
-    }
-    void pushValue(const long value) noexcept {
-        pushValue(LogElement{LogType::LONG_INTEGER, {.l = value}});
-    }
-    void pushValue(const long long value) noexcept {
-        pushValue(LogElement{LogType::LONG_LONG_INTEGER, {.ll = value}});
-    }
-    void pushValue(const unsigned value) noexcept {
-        pushValue(LogElement{LogType::UNSIGNED_INTEGER, {.u = value}});
-    }
-    void pushValue(const unsigned long value) noexcept {
-        pushValue(LogElement{LogType::UNSIGNED_LONG_INTEGER, {.ul = value}});
-    }
-    void pushValue(const unsigned long long value) noexcept {
-        pushValue(LogElement{LogType::UNSIGNED_LONG_LONG_INTEGER, {.ull = value}});
-    }
-    void pushValue(const float value) noexcept {
-        pushValue(LogElement{LogType::FLOAT, {.f = value}});
-    }
-    void pushValue(const double value) noexcept {
-        pushValue(LogElement{LogType::DOUBLE, {.d = value}});
-    }
-
-    template <typename T, typename... A>
-    auto log(const char *s, const T &value, A... args) noexcept {
-        while (*s) {
-            if (*s == '%') {
-                if (*(s + 1) == '%') [[unlikely]] {
-                    ++s;
-                } else {
-                    pushValue(value);
-                    log(s + 1, args...);
-                    return;
-                }
-            }
-            pushValue(*s++);
-        }
-        utils::die("extra arguments provided to log()");
+    /// Base case: push the final piece (no more values remain).
+    template <size_t Idx, size_t SN>
+    auto logImpl(const FormatStr<SN> &fmt) noexcept {
+        if constexpr (Idx == 0)
+            pushVal(NewLog{fmt.pieces[Idx]});
+        else
+            pushVal(fmt.pieces[Idx]);
     }
 
 private:
@@ -193,7 +173,7 @@ private:
     std::ofstream file;
     LFQueue<LogElement> queue;
     std::atomic<bool> running = {true};
-    std::thread *logger_thread = nullptr;
+    std::thread logger_thread;
 };
 
 }  // namespace utils

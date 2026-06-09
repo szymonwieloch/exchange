@@ -11,6 +11,7 @@ MatchingEngine::MatchingEngine(RequestLFQueue *client_requests, ResponseLFQueue 
 
 MatchingEngine::~MatchingEngine() {
     is_running = false;
+    logger.log("stopping MatchingEngine");
     using namespace std::literals::chrono_literals;
     std::this_thread::sleep_for(1s);
     incoming_requests = nullptr;
@@ -31,14 +32,13 @@ void MatchingEngine::stop() {
 }
 
 void MatchingEngine::run() noexcept {
-    // logger.log("%:% %() %\n", __FILE__, __LINE__, __FUNCTION__,
-    // utils::getCurrentTimeStr(&time_str));
+    logger.log("starting MatchingEngine");
     while (is_running) {
-        const auto me_client_request = incoming_requests->getNextToRead();
-        if (me_client_request) [[likely]] {
-            // logger.log("%:% %() % Processing %\n", __FILE__, __LINE__, __FUNCTION__,
-            // utils::getCurrentTimeStr(&time_str), me_client_request->toString());
-            processClientRequest(me_client_request);
+        const auto req = incoming_requests->getNextToRead();
+        if (req) [[likely]] {
+            logger.log("Processing order price=% side=%", type_safe::get(req->price),
+                       (uint64_t)req->side);
+            processClientRequest(req);
             incoming_requests->updateReadIndex();
         }
     }
