@@ -158,32 +158,32 @@ private:
 
     template <typename Hdr, typename... A>
     void log(A... args) noexcept {
-        // TODO: reserve n places in the queue
-        auto hdr = Hdr{.timestamp = std::chrono::high_resolution_clock::now()};
-        pushVal(hdr);
-        logImpl(args...);
+        constexpr size_t n = 1 + sizeof...(args);  // header + all arguments
+        const auto start = queue.reserve(n);
+        if (start == static_cast<size_t>(-1)) [[unlikely]]
+            return;  // queue full — drop message
+
+        const auto cap = queue.capacity();
+        *queue.slot(start) = Hdr{.timestamp = std::chrono::high_resolution_clock::now()};
+        writeArgs((start + 1) % cap, args...);
+        queue.commit(start, n);
     }
 
     template <typename T>
-    void logImpl(const T val) noexcept {
-        pushVal(val);
+    void writeArgs(size_t idx, const T val) noexcept {
+        *queue.slot(idx) = val;
     }
 
     template <typename T, typename... A>
-    void logImpl(const T first, const A... rest) noexcept {
-        pushVal(first);
-        logImpl(rest...);
-    }
-
-    void pushVal(const auto val) noexcept {
-        *(queue.getNextToWriteTo()) = val;
-        queue.updateWriteIndex();
+    void writeArgs(size_t idx, const T first, const A... rest) noexcept {
+        *queue.slot(idx) = first;
+        writeArgs((idx + 1) % queue.capacity(), rest...);
     }
 
 private:
     const std::string file_name;
     std::ofstream file;
-    LFQueue<LogElement> queue;
+    MPSCQueue<LogElement> queue;
     std::atomic<bool> running = {true};
     std::thread logger_thread;
 };

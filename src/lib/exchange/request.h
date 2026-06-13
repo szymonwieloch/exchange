@@ -89,8 +89,8 @@ struct Response {
 };
 
 // TODO #pragma pack(pop)
-using RequestLFQueue = utils::LFQueue<Request>;
-using ResponseLFQueue = utils::LFQueue<Response>;
+using RequestLFQueue = utils::SPSCQueue<Request>;
+using ResponseLFQueue = utils::SPSCQueue<Response>;
 
 // #pragma pack(push, 1)
 

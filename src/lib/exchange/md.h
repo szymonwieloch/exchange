@@ -54,6 +54,6 @@ struct MDUpdate {
     }
 };
 
-using MDLFQueue = utils::LFQueue<MDUpdate>;
+using MDLFQueue = utils::SPSCQueue<MDUpdate>;
 
 }  // namespace exchange
