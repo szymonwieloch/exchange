@@ -10,11 +10,14 @@ OrderBook::OrderBook(TickerId ticker_id, utils::Logger* logger, ResponseLFQueue*
       responses(responses),
       market_updates(market_updates),
       order_pool(MAX_ORDER_IDS),
-      logger(logger) {}
+      logger(logger) {
+    logger->debug("OrderBook created for ticker=",
+                  static_cast<uint64_t>(type_safe::get(ticker_id)));
+}
 
 OrderBook::~OrderBook() {
-    // logger->log("%:% %() % OrderBook\n%\n", __FILE__, __LINE__, __FUNCTION__,
-    //             utils::getCurrentTimeStr(&time_str), toString(false, true));
+    logger->debug("OrderBook destroyed for ticker=",
+                  static_cast<uint64_t>(type_safe::get(ticker_id)));
 }
 
 bool OrderBook::add(UserId user_id, OrderId order_id, TickerId ticker_id, Side side, Price price,
@@ -23,6 +26,13 @@ bool OrderBook::add(UserId user_id, OrderId order_id, TickerId ticker_id, Side s
     auto response =
         Response::accepted(user_id, ticker_id, order_id, new_market_order_id, side, price, qty);
     sendResponse(response);
+
+    logger->debug("Order accepted: user=", static_cast<uint64_t>(type_safe::get(user_id)),
+                  " oid=", type_safe::get(order_id),
+                  " market_oid=", type_safe::get(new_market_order_id),
+                  " side=", static_cast<int32_t>(side), " price=", type_safe::get(price),
+                  " qty=", type_safe::get(qty));
+
     const auto leaves_qty =
         checkForMatch(user_id, order_id, ticker_id, side, price, qty, new_market_order_id);
 
@@ -32,21 +42,44 @@ bool OrderBook::add(UserId user_id, OrderId order_id, TickerId ticker_id, Side s
                                          price, leaves_qty, priority);
         if (!addOrder(order, at_price_hint)) [[unlikely]] {
             order_pool.deallocate(order);
+            logger->warn("Failed to add order to book (duplicate): user=",
+                         static_cast<uint64_t>(type_safe::get(user_id)),
+                         " oid=", type_safe::get(order_id));
             return false;
         }
         auto market_update = MDUpdate::add(ticker_id, side, price, leaves_qty, priority);
         sendMarketUpdate(market_update);
+
+        logger->debug("Order inserted into book: market_oid=", type_safe::get(new_market_order_id),
+                      " leaves_qty=", type_safe::get(leaves_qty),
+                      " priority=", type_safe::get(priority));
+    } else {
+        logger->debug("Order fully matched: market_oid=", type_safe::get(new_market_order_id));
     }
     return true;
 }
 
 void OrderBook::cancel(UserId user_id, OrderId order_id, TickerId ticker_id) noexcept {
+    logger->debug("Cancel request: user=", static_cast<uint64_t>(type_safe::get(user_id)),
+                  " oid=", type_safe::get(order_id),
+                  " ticker=", static_cast<uint64_t>(type_safe::get(ticker_id)));
+
     auto order = cid_oid_to_order.find(user_id, order_id);
     if (!order) [[unlikely]] {
+        logger->debug("Cancel rejected (order not found): user=",
+                      static_cast<uint64_t>(type_safe::get(user_id)),
+                      " oid=", type_safe::get(order_id));
         Response response = Response::cancelRejected(user_id, ticker_id, order_id);
         sendResponse(response);
         return;
     }
+
+    logger->debug("Order canceled: user=", static_cast<uint64_t>(type_safe::get(user_id)),
+                  " oid=", type_safe::get(order_id),
+                  " market_oid=", type_safe::get(order->market_order_id),
+                  " side=", static_cast<int32_t>(order->side),
+                  " price=", type_safe::get(order->price), " qty=", type_safe::get(order->qty));
+
     auto response = Response::canceled(user_id, ticker_id, order_id, order->market_order_id,
                                        order->side, order->price, order->qty);
     auto market_update =
@@ -61,6 +94,10 @@ void OrderBook::cancel(UserId user_id, OrderId order_id, TickerId ticker_id) noe
 Quantity OrderBook::checkForMatch(UserId user_id, OrderId client_order_id, TickerId ticker_id,
                                   Side side, Price price, Quantity qty,
                                   MarketOrderId new_market_order_id) noexcept {
+    logger->debug("Matching started: market_oid=", type_safe::get(new_market_order_id),
+                  " side=", static_cast<int32_t>(side), " price=", type_safe::get(price),
+                  " qty=", type_safe::get(qty));
+
     auto leaves_qty = qty;
 
     // The matching loop is identical for both sides except for:
@@ -94,6 +131,11 @@ Quantity OrderBook::checkForMatch(UserId user_id, OrderId client_order_id, Ticke
         match_side([this] { return orders_at_price.bids(); },
                    [](Price a, Price b) noexcept { return a > b; });
     }
+
+    logger->debug("Matching complete: market_oid=", type_safe::get(new_market_order_id),
+                  " leaves_qty=", type_safe::get(leaves_qty), " filled_qty=",
+                  type_safe::get(Quantity{type_safe::get(qty) - type_safe::get(leaves_qty)}));
+
     return leaves_qty;
 }
 
@@ -105,6 +147,11 @@ void OrderBook::match(TickerId ticker_id, UserId user_id, Side side, OrderId cli
     const auto fill_qty = std::min(*leaves_qty, order_qty);
     *leaves_qty -= fill_qty;
     order->qty -= fill_qty;
+
+    logger->debug("Fill: aggressor_market_oid=", type_safe::get(new_market_order_id),
+                  " resting_market_oid=", type_safe::get(order->market_order_id),
+                  " price=", type_safe::get(itr->price), " fill_qty=", type_safe::get(fill_qty),
+                  " resting_remaining=", type_safe::get(order->qty));
 
     sendResponse(Response::filled(user_id, ticker_id, client_order_id, new_market_order_id, side,
                                   itr->price, fill_qty, *leaves_qty));
@@ -130,16 +177,26 @@ void OrderBook::match(TickerId ticker_id, UserId user_id, Side side, OrderId cli
 
 bool OrderBook::addOrder(Order* order, OrdersAtPrice* at_price_hint) noexcept {
     if (!cid_oid_to_order.insert(order)) [[unlikely]] {
+        logger->debug("addOrder failed: duplicate user-oid pair user=",
+                      static_cast<uint64_t>(type_safe::get(order->user_id)),
+                      " oid=", type_safe::get(order->order_id));
         return false;
     }
     if (!orders_at_price.insert(order, at_price_hint)) [[unlikely]] {
         cid_oid_to_order.remove(order->user_id, order->order_id);
+        logger->debug("addOrder failed: orders_at_price insert failed price=",
+                      type_safe::get(order->price));
         return false;
     }
     return true;
 }
 
 void OrderBook::removeOrder(Order* order, OrdersAtPrice* at_price_hint) noexcept {
+    logger->debug("Removing order: market_oid=", type_safe::get(order->market_order_id),
+                  " user=", static_cast<uint64_t>(type_safe::get(order->user_id)),
+                  " oid=", type_safe::get(order->order_id),
+                  " price=", type_safe::get(order->price));
+
     cid_oid_to_order.remove(order->user_id, order->order_id);
     if (at_price_hint) {
         orders_at_price.remove(order, at_price_hint);

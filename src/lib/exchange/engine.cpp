@@ -9,7 +9,9 @@ MatchingEngine::MatchingEngine(RequestLFQueue *client_requests, ResponseLFQueue 
       outgoing_ogw_responses(client_responses),
       outgoing_md_updates(market_updates),
       logger("exchange_matching_engine.log", utils::LogLevel::INFO),
-      ticker_order_book(&logger, outgoing_ogw_responses, outgoing_md_updates) {}
+      ticker_order_book(&logger, outgoing_ogw_responses, outgoing_md_updates) {
+    logger.info("MatchingEngine constructed");
+}
 
 MatchingEngine::~MatchingEngine() {
     is_running = false;
@@ -19,9 +21,11 @@ MatchingEngine::~MatchingEngine() {
     incoming_requests = nullptr;
     outgoing_ogw_responses = nullptr;
     outgoing_md_updates = nullptr;
+    logger.info("MatchingEngine destroyed");
 }
 
 void MatchingEngine::start() {
+    logger.info("MatchingEngine starting");
     is_running = true;
     // TODO
     // ASSERT(
@@ -30,6 +34,7 @@ void MatchingEngine::start() {
 }
 
 void MatchingEngine::stop() {
+    logger.info("MatchingEngine stopping");
     is_running = false;
 }
 
@@ -50,16 +55,26 @@ void MatchingEngine::processClientRequest(const Request *client_request) noexcep
     auto &order_book = *ticker_order_book.find(client_request->ticker_id);
     switch (client_request->type) {
         case RequestType::NEW: {
+            logger.debug("NEW order: user=", static_cast<uint64_t>(type_safe::get(client_request->user_id)),
+                         " ticker=", static_cast<uint64_t>(type_safe::get(client_request->ticker_id)),
+                         " oid=", type_safe::get(client_request->order_id),
+                         " side=", static_cast<int32_t>(client_request->side),
+                         " price=", type_safe::get(client_request->price),
+                         " qty=", type_safe::get(client_request->qty));
             (void)order_book.add(client_request->user_id, client_request->order_id,
                                  client_request->ticker_id, client_request->side,
                                  client_request->price, client_request->qty);
 
         } break;
         case RequestType::CANCEL: {
+            logger.debug("CANCEL request: user=", static_cast<uint64_t>(type_safe::get(client_request->user_id)),
+                         " ticker=", static_cast<uint64_t>(type_safe::get(client_request->ticker_id)),
+                         " oid=", type_safe::get(client_request->order_id));
             order_book.cancel(client_request->user_id, client_request->order_id,
                               client_request->ticker_id);
         } break;
         default: {
+            logger.error("Received invalid request-type: ", static_cast<uint32_t>(client_request->type));
             utils::die("Received invalid request-type");
         } break;
     }
