@@ -91,6 +91,18 @@ TEST(ParseLoggingTest, ErrorOnUnknownLevel) {
     EXPECT_NE(result.error().find("trace"), std::string::npos);
 }
 
+TEST(ParseLoggingTest, ErrorOnUnknownKey) {
+    const auto tbl = toml::parse(R"(
+        [logging]
+        level = "info"
+        colour = "blue"
+    )");
+    auto result = parseLogging(tbl);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_NE(result.error().find("Unknown key"), std::string::npos);
+    EXPECT_NE(result.error().find("colour"), std::string::npos);
+}
+
 // ===================================================================
 //  parseEngine
 // ===================================================================
@@ -132,6 +144,18 @@ TEST(ParseEngineTest, SingleTicker) {
     ASSERT_TRUE(result.has_value());
     ASSERT_EQ(result->tickers.size(), 1u);
     EXPECT_EQ(result->tickers[0], "ONLY");
+}
+
+TEST(ParseEngineTest, ErrorOnUnknownKey) {
+    const auto tbl = toml::parse(R"(
+        [engine]
+        tickers = ["AAPL"]
+        max_orders = 1000
+    )");
+    auto result = parseEngine(tbl);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_NE(result.error().find("Unknown key"), std::string::npos);
+    EXPECT_NE(result.error().find("max_orders"), std::string::npos);
 }
 
 // ===================================================================
@@ -179,6 +203,18 @@ TEST(ParseThreadingTest, NegativeCoreValues) {
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result->engine_core, -1);
     EXPECT_EQ(result->logger_core, -2);
+}
+
+TEST(ParseThreadingTest, ErrorOnUnknownKey) {
+    const auto tbl = toml::parse(R"(
+        [threading]
+        engine_core = 0
+        priority = "high"
+    )");
+    auto result = parseThreading(tbl);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_NE(result.error().find("Unknown key"), std::string::npos);
+    EXPECT_NE(result.error().find("priority"), std::string::npos);
 }
 
 // ===================================================================
@@ -251,4 +287,23 @@ TEST(ParseConfigTest, CaseSensitiveLogLevel) {
     auto logging = parseLogging(tbl);
     ASSERT_FALSE(logging.has_value());
     EXPECT_NE(logging.error().find("Unknown log level"), std::string::npos);
+}
+
+TEST(ParseConfigTest, ErrorOnUnknownKeyInAnySection) {
+    // Unknown key in [engine] should fail the full parseConfig pipeline
+    const auto tbl = toml::parse(R"(
+        [logging]
+        level = "info"
+
+        [engine]
+        tickers = ["AAPL"]
+        garbage = true
+
+        [threading]
+        engine_core = 0
+    )");
+    auto engine = parseEngine(tbl);
+    ASSERT_FALSE(engine.has_value());
+    EXPECT_NE(engine.error().find("Unknown key"), std::string::npos);
+    EXPECT_NE(engine.error().find("garbage"), std::string::npos);
 }

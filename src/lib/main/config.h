@@ -2,7 +2,9 @@
 
 #include <cstdint>
 #include <expected>
+#include <initializer_list>
 #include <string>
+#include <string_view>
 #include <toml++/toml.hpp>
 #include <vector>
 
@@ -52,6 +54,28 @@ struct Config {
     Threading threading;
 };
 
+/// Validates that a TOML table contains only the allowed keys.
+///
+/// Returns std::nullopt on success, or an error string naming the first
+/// unknown key found.
+[[nodiscard]] inline std::optional<std::string> validateTableKeys(
+    const toml::table& tbl,
+    std::initializer_list<std::string_view> allowed) noexcept {
+    for (const auto& [key, value] : tbl) {
+        bool known = false;
+        for (auto a : allowed) {
+            if (key.str() == a) {
+                known = true;
+                break;
+            }
+        }
+        if (!known) {
+            return std::string{"Unknown key: "} + std::string{key.str()};
+        }
+    }
+    return std::nullopt;
+}
+
 /// Parses a LogLevel from a TOML string.
 ///
 /// Recognised values (case-insensitive): "debug", "info", "warn", "error".
@@ -85,6 +109,10 @@ struct Config {
         if (auto val = (*logging)["file"].value<std::string>()) {
             result.file = *val;
         }
+
+        if (auto err = validateTableKeys(*logging, {"level", "file"})) {
+            return std::unexpected(std::move(*err));
+        }
     }
 
     return result;
@@ -103,6 +131,10 @@ struct Config {
                 }
             }
         }
+
+        if (auto err = validateTableKeys(*engine, {"tickers"})) {
+            return std::unexpected(std::move(*err));
+        }
     }
 
     return result;
@@ -119,6 +151,10 @@ struct Config {
         }
         if (auto val = (*threading)["logger_core"].value<int64_t>()) {
             result.logger_core = static_cast<int>(*val);
+        }
+
+        if (auto err = validateTableKeys(*threading, {"engine_core", "logger_core"})) {
+            return std::unexpected(std::move(*err));
         }
     }
 
