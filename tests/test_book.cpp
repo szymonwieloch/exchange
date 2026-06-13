@@ -51,7 +51,7 @@ protected:
     // Logger is heap-allocated and intentionally leaked — its destructor
     // attempts to join a thread that is never created (TODO in log.h).
     // NOLINTNEXTLINE(cppcoreguidelines-owning-memory)
-    utils::Logger *logger = new utils::Logger("test_book.log");
+    utils::Logger *logger = new utils::Logger("test_book.log", utils::LogLevel::DEBUG);
     ResponseLFQueue responses{kQueueCapacity};
     MDLFQueue market_updates{kQueueCapacity};
 

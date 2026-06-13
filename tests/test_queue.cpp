@@ -8,8 +8,8 @@
 
 #include "lib/utils/queue.h"
 
-using utils::SPSCQueue;
 using utils::MPSCQueue;
+using utils::SPSCQueue;
 
 // ===================================================================
 //  SPSCQueue tests  (single-producer single-consumer)
@@ -339,7 +339,8 @@ TEST(MPSCQueueTest, MultiProducerSingleElement) {
         int last = 0;
         while (last < kTotalItems) {
             const int* val = q.getNextToRead();
-            if (val == nullptr) continue;
+            if (val == nullptr)
+                continue;
             EXPECT_GE(*val, 0);
             EXPECT_LT(*val, kNumProducers * 1000);
             q.updateReadIndex();
@@ -348,7 +349,8 @@ TEST(MPSCQueueTest, MultiProducerSingleElement) {
         consumed.store(last, std::memory_order_release);
     });
 
-    for (auto& t : producers) t.join();
+    for (auto& t : producers)
+        t.join();
     consumer.join();
 
     EXPECT_EQ(produced.load(), kTotalItems);
@@ -390,13 +392,15 @@ TEST(MPSCQueueTest, BatchMultiProducerNoInterleaving) {
     std::thread consumer([&]() {
         while (messagesRead.load(std::memory_order_acquire) < kTotalMessages) {
             const int* v0 = q.getNextToRead();
-            if (v0 == nullptr) continue;
+            if (v0 == nullptr)
+                continue;
 
             const int pid1 = *v0;
             q.updateReadIndex();
 
             const int* v1 = q.getNextToRead();
-            if (v1 == nullptr) continue;  // batch not fully committed yet
+            if (v1 == nullptr)
+                continue;  // batch not fully committed yet
             const int seq = *v1;
             q.updateReadIndex();
 
@@ -415,7 +419,8 @@ TEST(MPSCQueueTest, BatchMultiProducerNoInterleaving) {
         }
     });
 
-    for (auto& t : producers) t.join();
+    for (auto& t : producers)
+        t.join();
     consumer.join();
 
     EXPECT_EQ(messagesRead.load(), kTotalMessages);

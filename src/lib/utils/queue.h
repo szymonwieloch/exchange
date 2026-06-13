@@ -56,7 +56,8 @@ public:
 
     /// Returns a pointer to the oldest unread element, or nullptr if empty.
     [[nodiscard]] const T* getNextToRead() const noexcept {
-        return (read_idx.load(std::memory_order_acquire) == write_idx.load(std::memory_order_acquire))
+        return (read_idx.load(std::memory_order_acquire) ==
+                write_idx.load(std::memory_order_acquire))
                    ? nullptr
                    : &store[read_idx.load(std::memory_order_relaxed)];
     }
@@ -66,8 +67,7 @@ public:
     void updateReadIndex() noexcept {
         read_idx.store((read_idx.load(std::memory_order_relaxed) + 1) % cap,
                        std::memory_order_release);
-        [[maybe_unused]] const size_t prev =
-            num_elements.fetch_sub(1, std::memory_order_release);
+        [[maybe_unused]] const size_t prev = num_elements.fetch_sub(1, std::memory_order_release);
         assert(prev > 0);
     }
 
@@ -133,11 +133,12 @@ public:
         while (true) {
             const size_t rd = read_idx.load(std::memory_order_acquire);
             const size_t used = (wr >= rd) ? (wr - rd) : (cap - rd + wr);
-            if (used + n + 1 > cap) return static_cast<size_t>(-1);
+            if (used + n + 1 > cap)
+                return static_cast<size_t>(-1);
 
             const size_t new_wr = (wr + n) % cap;
-            if (write_reserve.compare_exchange_weak(wr, new_wr,
-                    std::memory_order_acq_rel, std::memory_order_relaxed))
+            if (write_reserve.compare_exchange_weak(wr, new_wr, std::memory_order_acq_rel,
+                                                    std::memory_order_relaxed))
                 return wr;
         }
     }
@@ -174,8 +175,7 @@ public:
     void updateReadIndex() noexcept {
         const size_t rd = read_idx.load(std::memory_order_relaxed);
         read_idx.store((rd + 1) % cap, std::memory_order_release);
-        [[maybe_unused]] const size_t prev =
-            num_elements.fetch_sub(1, std::memory_order_release);
+        [[maybe_unused]] const size_t prev = num_elements.fetch_sub(1, std::memory_order_release);
         assert(prev > 0);
     }
 

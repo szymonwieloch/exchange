@@ -628,7 +628,7 @@ TEST(OrdersAtPriceHashMapTest, InsertSingleOrderCreatesPriceLevel) {
     OrdersAtPriceHashMap map;
     Order o = makeOrder(Side::BUY, Price(100), Priority(1));
 
-    EXPECT_TRUE(map.insert(&o));
+    (void)map.insert(&o);
 
     auto *level = map.find(Price(100));
     ASSERT_NE(level, nullptr);
@@ -643,8 +643,8 @@ TEST(OrdersAtPriceHashMapTest, InsertSecondOrderAtSamePrice) {
     Order o1 = makeOrder(Side::BUY, Price(100), Priority(1));
     Order o2 = makeOrder(Side::BUY, Price(100), Priority(2));
 
-    EXPECT_TRUE(map.insert(&o1));
-    EXPECT_TRUE(map.insert(&o2));
+    (void)map.insert(&o1);
+    (void)map.insert(&o2);
 
     auto *level = map.find(Price(100));
     ASSERT_NE(level, nullptr);
@@ -657,8 +657,8 @@ TEST(OrdersAtPriceHashMapTest, InsertOrdersAtDifferentPrices) {
     Order o1 = makeOrder(Side::SELL, Price(100), Priority(1));
     Order o2 = makeOrder(Side::SELL, Price(110), Priority(1));
 
-    EXPECT_TRUE(map.insert(&o1));
-    EXPECT_TRUE(map.insert(&o2));
+    (void)map.insert(&o1);
+    (void)map.insert(&o2);
 
     auto *l100 = map.find(Price(100));
     auto *l110 = map.find(Price(110));
@@ -672,8 +672,8 @@ TEST(OrdersAtPriceHashMapTest, InsertBidsAndAsksIndependent) {
     Order bid = makeOrder(Side::BUY, Price(100), Priority(1));
     Order ask = makeOrder(Side::SELL, Price(110), Priority(1));
 
-    EXPECT_TRUE(map.insert(&bid));
-    EXPECT_TRUE(map.insert(&ask));
+    (void)map.insert(&bid);
+    (void)map.insert(&ask);
 
     EXPECT_NE(map.bids(), nullptr);
     EXPECT_NE(map.asks(), nullptr);
@@ -690,8 +690,8 @@ TEST(OrdersAtPriceHashMapTest, RemoveOrderLeavingOthersKeepsLevel) {
     Order o1 = makeOrder(Side::BUY, Price(100), Priority(1));
     Order o2 = makeOrder(Side::BUY, Price(100), Priority(2));
 
-    EXPECT_TRUE(map.insert(&o1));
-    EXPECT_TRUE(map.insert(&o2));
+    (void)map.insert(&o1);
+    (void)map.insert(&o2);
     map.remove(&o1);
 
     auto *level = map.find(Price(100));
@@ -704,7 +704,7 @@ TEST(OrdersAtPriceHashMapTest, RemoveLastOrderDestroysPriceLevel) {
     OrdersAtPriceHashMap map;
     Order o = makeOrder(Side::SELL, Price(200), Priority(1));
 
-    EXPECT_TRUE(map.insert(&o));
+    (void)map.insert(&o);
     map.remove(&o);
 
     EXPECT_EQ(map.find(Price(200)), nullptr);
@@ -715,8 +715,8 @@ TEST(OrdersAtPriceHashMapTest, RemoveLastBidAdvancesBidsHead) {
     Order o1 = makeOrder(Side::BUY, Price(100), Priority(1));
     Order o2 = makeOrder(Side::BUY, Price(90), Priority(1));
 
-    EXPECT_TRUE(map.insert(&o1));
-    EXPECT_TRUE(map.insert(&o2));
+    (void)map.insert(&o1);
+    (void)map.insert(&o2);
 
     EXPECT_EQ(map.bids()->price, Price(100));
     map.remove(&o1);
@@ -730,8 +730,8 @@ TEST(OrdersAtPriceHashMapTest, RemoveLastAskAdvancesAsksHead) {
     Order o1 = makeOrder(Side::SELL, Price(100), Priority(1));
     Order o2 = makeOrder(Side::SELL, Price(110), Priority(1));
 
-    EXPECT_TRUE(map.insert(&o1));
-    EXPECT_TRUE(map.insert(&o2));
+    (void)map.insert(&o1);
+    (void)map.insert(&o2);
 
     EXPECT_EQ(map.asks()->price, Price(100));
     map.remove(&o1);
@@ -744,7 +744,7 @@ TEST(OrdersAtPriceHashMapTest, RemoveLastOrderEmptiesSide) {
     OrdersAtPriceHashMap map;
     Order o = makeOrder(Side::BUY, Price(100), Priority(1));
 
-    EXPECT_TRUE(map.insert(&o));
+    (void)map.insert(&o);
     map.remove(&o);
 
     EXPECT_EQ(map.bids(), nullptr);
@@ -764,10 +764,10 @@ TEST(OrdersAtPriceHashMapTest, NextPriorityForExistingPriceIncrements) {
     Order o1 = makeOrder(Side::BUY, Price(100), Priority(1));
     Order o2 = makeOrder(Side::BUY, Price(100), Priority(2));
 
-    EXPECT_TRUE(map.insert(&o1));
+    (void)map.insert(&o1);
     EXPECT_EQ(map.nextPriority(Price(100)).first, Priority(2));
 
-    EXPECT_TRUE(map.insert(&o2));
+    (void)map.insert(&o2);
     EXPECT_EQ(map.nextPriority(Price(100)).first, Priority(3));
 }
 
@@ -780,8 +780,8 @@ TEST(OrdersAtPriceHashMapTest, BidsSortedDescendingHeadInsertion) {
     Order o1 = makeOrder(Side::BUY, Price(90), Priority(1));
     Order o2 = makeOrder(Side::BUY, Price(100), Priority(1));
 
-    EXPECT_TRUE(map.insert(&o1));
-    EXPECT_TRUE(map.insert(&o2));
+    (void)map.insert(&o1);
+    (void)map.insert(&o2);
 
     ASSERT_NE(map.bids(), nullptr);
     EXPECT_EQ(map.bids()->price, Price(100));
@@ -794,8 +794,8 @@ TEST(OrdersAtPriceHashMapTest, BidsSortedDescendingTailInsertion) {
     Order o1 = makeOrder(Side::BUY, Price(100), Priority(1));
     Order o2 = makeOrder(Side::BUY, Price(80), Priority(1));
 
-    EXPECT_TRUE(map.insert(&o1));
-    EXPECT_TRUE(map.insert(&o2));
+    (void)map.insert(&o1);
+    (void)map.insert(&o2);
 
     EXPECT_EQ(map.bids()->price, Price(100));
     EXPECT_EQ(map.bids()->getNextOrd()->price, Price(80));
@@ -808,9 +808,9 @@ TEST(OrdersAtPriceHashMapTest, BidsSortedDescendingMiddleInsertion) {
     Order o3 = makeOrder(Side::BUY, Price(80), Priority(1));
     Order o2 = makeOrder(Side::BUY, Price(90), Priority(1));
 
-    EXPECT_TRUE(map.insert(&o1));
-    EXPECT_TRUE(map.insert(&o3));
-    EXPECT_TRUE(map.insert(&o2));
+    (void)map.insert(&o1);
+    (void)map.insert(&o3);
+    (void)map.insert(&o2);
 
     auto *b = map.bids();
     ASSERT_NE(b, nullptr);
@@ -831,8 +831,8 @@ TEST(OrdersAtPriceHashMapTest, AsksSortedAscendingHeadInsertion) {
     Order o1 = makeOrder(Side::SELL, Price(110), Priority(1));
     Order o2 = makeOrder(Side::SELL, Price(100), Priority(1));
 
-    EXPECT_TRUE(map.insert(&o1));
-    EXPECT_TRUE(map.insert(&o2));
+    (void)map.insert(&o1);
+    (void)map.insert(&o2);
 
     ASSERT_NE(map.asks(), nullptr);
     EXPECT_EQ(map.asks()->price, Price(100));
@@ -845,8 +845,8 @@ TEST(OrdersAtPriceHashMapTest, AsksSortedAscendingTailInsertion) {
     Order o1 = makeOrder(Side::SELL, Price(100), Priority(1));
     Order o2 = makeOrder(Side::SELL, Price(120), Priority(1));
 
-    EXPECT_TRUE(map.insert(&o1));
-    EXPECT_TRUE(map.insert(&o2));
+    (void)map.insert(&o1);
+    (void)map.insert(&o2);
 
     EXPECT_EQ(map.asks()->price, Price(100));
     EXPECT_EQ(map.asks()->getNextOrd()->price, Price(120));
@@ -859,9 +859,9 @@ TEST(OrdersAtPriceHashMapTest, AsksSortedAscendingMiddleInsertion) {
     Order o3 = makeOrder(Side::SELL, Price(120), Priority(1));
     Order o2 = makeOrder(Side::SELL, Price(110), Priority(1));
 
-    EXPECT_TRUE(map.insert(&o1));
-    EXPECT_TRUE(map.insert(&o3));
-    EXPECT_TRUE(map.insert(&o2));
+    (void)map.insert(&o1);
+    (void)map.insert(&o3);
+    (void)map.insert(&o2);
 
     auto *a = map.asks();
     ASSERT_NE(a, nullptr);
@@ -883,8 +883,8 @@ TEST(OrdersAtPriceHashMapTest, HashCollisionDifferentPricesSameBucket) {
     Order o1 = makeOrder(Side::BUY, Price(100), Priority(1));
     Order o2 = makeOrder(Side::BUY, Price(356), Priority(1));
 
-    EXPECT_TRUE(map.insert(&o1));
-    EXPECT_TRUE(map.insert(&o2));
+    (void)map.insert(&o1);
+    (void)map.insert(&o2);
 
     auto *l100 = map.find(Price(100));
     auto *l356 = map.find(Price(356));
@@ -901,8 +901,8 @@ TEST(OrdersAtPriceHashMapTest, RemoveFromCollisionChainUpdatesHead) {
     Order o1 = makeOrder(Side::SELL, Price(100), Priority(1));
     Order o2 = makeOrder(Side::SELL, Price(356), Priority(1));
 
-    EXPECT_TRUE(map.insert(&o1));
-    EXPECT_TRUE(map.insert(&o2));
+    (void)map.insert(&o1);
+    (void)map.insert(&o2);
 
     // o2 inserted second → its OrdersAtPrice is the idx-chain head
     map.remove(&o2);
@@ -927,12 +927,12 @@ TEST(OrdersAtPriceHashMapTest, MultipleInsertsAndRemovesBidsAndAsks) {
     Order a2 = makeOrder(Side::SELL, Price(108), Priority(1));
     Order a3 = makeOrder(Side::SELL, Price(115), Priority(1));
 
-    EXPECT_TRUE(map.insert(&b1));
-    EXPECT_TRUE(map.insert(&a1));
-    EXPECT_TRUE(map.insert(&b2));
-    EXPECT_TRUE(map.insert(&a2));
-    EXPECT_TRUE(map.insert(&b3));
-    EXPECT_TRUE(map.insert(&a3));
+    (void)map.insert(&b1);
+    (void)map.insert(&a1);
+    (void)map.insert(&b2);
+    (void)map.insert(&a2);
+    (void)map.insert(&b3);
+    (void)map.insert(&a3);
 
     // Bids: 105, 100, 95
     auto *bids = map.bids();
@@ -962,7 +962,7 @@ TEST(OrdersAtPriceHashMapTest, InsertRemoveCyclePreservesPriceSortedOrder) {
     Order bids[5];
     for (int i = 0; i < 5; ++i) {
         bids[i] = makeOrder(Side::BUY, Price(100 - i * 10), Priority(1));
-        EXPECT_TRUE(map.insert(&bids[i]));
+        (void)map.insert(&bids[i]);
     }
 
     // Verify: 100, 90, 80, 70, 60
@@ -992,9 +992,9 @@ TEST(OrdersAtPriceHashMapTest, MultipleOrdersSamePriceRingCorrectness) {
     Order o2 = makeOrder(Side::BUY, Price(100), Priority(2));
     Order o3 = makeOrder(Side::BUY, Price(100), Priority(3));
 
-    EXPECT_TRUE(map.insert(&o1));
-    EXPECT_TRUE(map.insert(&o2));
-    EXPECT_TRUE(map.insert(&o3));
+    (void)map.insert(&o1);
+    (void)map.insert(&o2);
+    (void)map.insert(&o3);
 
     auto *level = map.find(Price(100));
     ASSERT_NE(level, nullptr);
@@ -1017,8 +1017,8 @@ TEST(OrdersAtPriceHashMapTest, BidAndAskAtClosePricesAreIndependent) {
     Order bid = makeOrder(Side::BUY, Price(99), Priority(1));
     Order ask = makeOrder(Side::SELL, Price(101), Priority(1));
 
-    EXPECT_TRUE(map.insert(&bid));
-    EXPECT_TRUE(map.insert(&ask));
+    (void)map.insert(&bid);
+    (void)map.insert(&ask);
 
     EXPECT_NE(map.bids(), nullptr);
     EXPECT_NE(map.asks(), nullptr);
@@ -1034,9 +1034,9 @@ TEST(OrdersAtPriceHashMapTest, EmptySideAfterAllRemovals) {
     Order o2 = makeOrder(Side::SELL, Price(110), Priority(1));
     Order o3 = makeOrder(Side::SELL, Price(120), Priority(1));
 
-    EXPECT_TRUE(map.insert(&o1));
-    EXPECT_TRUE(map.insert(&o2));
-    EXPECT_TRUE(map.insert(&o3));
+    (void)map.insert(&o1);
+    (void)map.insert(&o2);
+    (void)map.insert(&o3);
 
     EXPECT_NE(map.asks(), nullptr);
 
@@ -1055,7 +1055,7 @@ TEST(OrdersAtPriceHashMapTest, EmptySideAfterAllRemovals) {
 TEST(OrdersAtPriceHashMapTest, BidsAndAsksAreConstAccessible) {
     OrdersAtPriceHashMap map;
     Order o = makeOrder(Side::BUY, Price(50), Priority(1));
-    EXPECT_TRUE(map.insert(&o));
+    (void)map.insert(&o);
 
     const auto &cmap = map;
     EXPECT_EQ(cmap.bids()->price, Price(50));

@@ -1,12 +1,14 @@
 #include "engine.h"
 
+#include "lib/utils/die.h"
+
 namespace exchange {
 MatchingEngine::MatchingEngine(RequestLFQueue *client_requests, ResponseLFQueue *client_responses,
                                MDLFQueue *market_updates)
     : incoming_requests(client_requests),
       outgoing_ogw_responses(client_responses),
       outgoing_md_updates(market_updates),
-      logger("exchange_matching_engine.log"),
+      logger("exchange_matching_engine.log", utils::LogLevel::INFO),
       ticker_order_book(&logger, outgoing_ogw_responses, outgoing_md_updates) {}
 
 MatchingEngine::~MatchingEngine() {
