@@ -66,11 +66,10 @@ struct DebugHeader {
     TscTimestamp timestamp;
 };
 
+/// Writes a DEBUG log-line prefix with a formatted TSC timestamp.
+/// Output: `\nDEBG YYYY-MM-DD HH:MM:SS.nnnnnnnnn: `
 inline std::ostream &operator<<(std::ostream &os, const DebugHeader &hdr) {
-    (void)hdr;
-    os << "\nDEBG ";
-    // tsc_calibration.format(os, hdr.timestamp);
-    os << ": ";
+    os << "\nDEBG " << hdr.timestamp << ": ";
     return os;
 }
 
@@ -79,11 +78,10 @@ struct InfoHeader {
     TscTimestamp timestamp;
 };
 
+/// Writes an INFO log-line prefix with a formatted TSC timestamp.
+/// Output: `\nINFO YYYY-MM-DD HH:MM:SS.nnnnnnnnn: `
 inline std::ostream &operator<<(std::ostream &os, const InfoHeader &hdr) {
-    (void)hdr;
-    os << "\nINFO ";
-    // tsc_calibration.format(os, hdr.timestamp);
-    os << ": ";
+    os << "\nINFO " << hdr.timestamp << ": ";
     return os;
 }
 
@@ -92,11 +90,10 @@ struct WarnHeader {
     TscTimestamp timestamp;
 };
 
+/// Writes a WARN log-line prefix with a formatted TSC timestamp.
+/// Output: `\nWARN YYYY-MM-DD HH:MM:SS.nnnnnnnnn: `
 inline std::ostream &operator<<(std::ostream &os, const WarnHeader &hdr) {
-    (void)hdr;
-    os << "\nWARN ";
-    // tsc_calibration.format(os, hdr.timestamp);
-    os << ": ";
+    os << "\nWARN " << hdr.timestamp << ": ";
     return os;
 }
 
@@ -105,11 +102,10 @@ struct ErrorHeader {
     TscTimestamp timestamp;
 };
 
+/// Writes an ERROR log-line prefix with a formatted TSC timestamp.
+/// Output: `\nERRO YYYY-MM-DD HH:MM:SS.nnnnnnnnn: `
 inline std::ostream &operator<<(std::ostream &os, const ErrorHeader &hdr) {
-    (void)hdr;
-    os << "\nERRO ";
-    // tsc_calibration.format(os, hdr.timestamp);
-    os << ": ";
+    os << "\nERRO " << hdr.timestamp << ": ";
     return os;
 }
 
@@ -171,9 +167,7 @@ public:
         if (running) {
             return false;
         }
-        if (!tsc_calibration.calibrated()) {
-            tsc_calibration = TscCalibration::calibrate();
-        }
+        (void)globalCalibration();  // ensure calibration is triggered
         file.open(file_name);
         if (!file.is_open()) {
             return false;
@@ -331,7 +325,6 @@ private:
     std::atomic<bool> running = {false};  ///< Set to true while the consumer thread is active.
     std::thread logger_thread;            ///< Background consumer thread.
     LogLevel min_level = LogLevel::INFO;  ///< Runtime minimum severity threshold.
-    TscCalibration tsc_calibration;
 };
 
 }  // namespace utils
