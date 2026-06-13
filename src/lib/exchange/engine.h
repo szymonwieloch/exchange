@@ -12,7 +12,8 @@ namespace exchange {
 class MatchingEngine final {
 public:
     MatchingEngine(RequestLFQueue *user_requests, ResponseLFQueue *user_responses,
-                   MDLFQueue *market_updates);
+                   MDLFQueue *market_updates, const std::string &log_file,
+                   utils::LogLevel log_level);
     ~MatchingEngine();
     void start();
     void stop();

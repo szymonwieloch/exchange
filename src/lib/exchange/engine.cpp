@@ -4,11 +4,12 @@
 
 namespace exchange {
 MatchingEngine::MatchingEngine(RequestLFQueue *client_requests, ResponseLFQueue *client_responses,
-                               MDLFQueue *market_updates)
+                               MDLFQueue *market_updates, const std::string &log_file,
+                               utils::LogLevel log_level)
     : incoming_requests(client_requests),
       outgoing_ogw_responses(client_responses),
       outgoing_md_updates(market_updates),
-      logger("exchange_matching_engine.log", utils::LogLevel::INFO),
+      logger(log_file, log_level),
       ticker_order_book(&logger, outgoing_ogw_responses, outgoing_md_updates) {
     logger.info("MatchingEngine constructed");
 }

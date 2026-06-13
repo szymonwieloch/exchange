@@ -15,6 +15,7 @@ FetchContent_MakeAvailable(googletest)
 # Test executable
 add_executable(exchange_tests
     test_book.cpp
+    test_config.cpp
     test_log.cpp
     test_mempool.cpp
     test_orders_at_price.cpp
@@ -32,6 +33,7 @@ target_include_directories(exchange_tests PRIVATE
 
 target_link_libraries(exchange_tests PRIVATE
     GTest::gtest_main
+    tomlplusplus::tomlplusplus
     type_safe
 )
 

@@ -1,0 +1,20 @@
+# Exchange Matching Engine — Sample Configuration
+# Copy this file and tweak to suit your deployment.
+
+[logging]
+# Log severity: "debug", "info", "warn", or "error"
+level = "info"
+# Path to the output log file (will be overwritten on each run)
+file  = "exchange.log"
+
+[engine]
+# List of tradeable tickers (max 8 as per compile-time constants)
+tickers = ["AAPL", "GOOG", "MSFT", "TSLA", "NVDA", "AMD", "INTC", "IBM"]
+
+[threading]
+# CPU core to pin the matching engine thread to.
+# Set to -1 (or omit) for no pinning.
+engine_core = 0
+# CPU core to pin the logger background thread to.
+# Set to -1 (or omit) for no pinning.
+logger_core = 1

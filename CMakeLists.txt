@@ -90,6 +90,13 @@ FetchContent_Declare(
 set(TYPE_SAFE_FETCH_MISSING_DEPENDENCIES OFF CACHE BOOL "")
 FetchContent_MakeAvailable(type_safe)
 
+# toml++ — header-only TOML configuration parser
+FetchContent_Declare(
+    tomlplusplus
+    URL https://github.com/marzer/tomlplusplus/archive/refs/tags/v3.4.0.tar.gz
+)
+FetchContent_MakeAvailable(tomlplusplus)
+
 # Subdirectories
 add_subdirectory(src)
 
