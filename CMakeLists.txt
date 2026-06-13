@@ -97,6 +97,9 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(tomlplusplus)
 
+# Boost.ProgramOptions for command-line argument parsing
+find_package(Boost REQUIRED COMPONENTS program_options)
+
 # Subdirectories
 add_subdirectory(src)
 

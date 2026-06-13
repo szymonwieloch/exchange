@@ -1,3 +1,5 @@
+#include <boost/program_options.hpp>
+
 #include <iostream>
 #include <string>
 #include <string_view>
@@ -16,27 +18,32 @@
 #include "lib/utils/queue.h"
 #include "lib/utils/thread.h"
 
-namespace {
-
-/// Parses a path to the configuration file from command-line arguments.
-///
-/// Usage: `exchange [config.toml]`
-/// Returns the user-supplied path or the default `"config.toml"`.
-[[nodiscard]] std::string parseConfigPath(int argc, char* argv[]) {
-    if (argc > 2) {
-        utils::die("Usage: exchange [config.toml]");
-    }
-    if (argc == 2) {
-        return argv[1];
-    }
-    return "config.toml";
-}
-
-}  // namespace
-
 int main(int argc, char* argv[]) {
-    // ── Parse configuration ───────────────────────────────────────
-    const auto config_path = parseConfigPath(argc, argv);
+    // ── Parse command-line arguments ──────────────────────────────
+    namespace po = boost::program_options;
+
+    po::options_description desc("Options");
+    desc.add_options()
+        ("help,h", "Show this help message")
+        ("config,c", po::value<std::string>()->default_value("config.toml"),
+         "Path to configuration file");
+
+    po::variables_map vm;
+    try {
+        po::store(po::parse_command_line(argc, argv, desc), vm);
+        po::notify(vm);
+    } catch (const po::error& e) {
+        std::cerr << "Error: " << e.what() << "\n\n";
+        std::cerr << desc << std::endl;
+        return 1;
+    }
+
+    if (vm.count("help")) {
+        std::cout << desc << std::endl;
+        return 0;
+    }
+
+    const auto config_path = vm["config"].as<std::string>();
     std::cout << "Loading configuration from: " << config_path << std::endl;
 
     const auto config_result = exchange::parseConfig(config_path);

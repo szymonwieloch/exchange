@@ -12,4 +12,4 @@ target_include_directories(exchange_lib PUBLIC
 )
 
 target_link_libraries(exchange_lib PUBLIC type_safe tomlplusplus::tomlplusplus)
-target_link_libraries(exchange PRIVATE exchange_lib)
+target_link_libraries(exchange PRIVATE exchange_lib Boost::program_options)
