@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <atomic>
+#include <cstdint>
 #include <cstdio>
 #include <fstream>
 #include <string>
@@ -135,14 +136,14 @@ TEST(LogElementTest, CanHoldInt64) {
     EXPECT_EQ(std::get<std::int64_t>(elem), -100LL);
 }
 
-TEST(LogElementTest, CanHoldUnsignedInt) {
-    LogElement elem = 7U;
-    EXPECT_EQ(std::get<unsigned int>(elem), 7U);
+TEST(LogElementTest, CanHoldUint32) {
+    LogElement elem = std::uint32_t{7};
+    EXPECT_EQ(std::get<std::uint32_t>(elem), 7U);
 }
 
-TEST(LogElementTest, CanHoldInt) {
-    LogElement elem = -3;
-    EXPECT_EQ(std::get<int>(elem), -3);
+TEST(LogElementTest, CanHoldInt32) {
+    LogElement elem = std::int32_t{-3};
+    EXPECT_EQ(std::get<std::int32_t>(elem), -3);
 }
 
 TEST(LogElementTest, CanHoldDouble) {

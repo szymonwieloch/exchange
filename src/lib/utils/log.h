@@ -72,54 +72,49 @@ struct DebugHeader {
     TscTimestamp timestamp;
 };
 
-/// Writes a DEBUG log-line prefix with a formatted TSC timestamp.
-/// Output: `\nDEBG YYYY-MM-DD HH:MM:SS.nnnnnnnnn: `
-inline std::ostream &operator<<(std::ostream &os, const DebugHeader &hdr) {
-    os << "\nDEBG " << hdr.timestamp << ": ";
-    return os;
-}
-
 /// Header written before each INFO-level message payload.
 struct InfoHeader {
     TscTimestamp timestamp;
 };
-
-/// Writes an INFO log-line prefix with a formatted TSC timestamp.
-/// Output: `\nINFO YYYY-MM-DD HH:MM:SS.nnnnnnnnn: `
-inline std::ostream &operator<<(std::ostream &os, const InfoHeader &hdr) {
-    os << "\nINFO " << hdr.timestamp << ": ";
-    return os;
-}
 
 /// Header written before each WARN-level message payload.
 struct WarnHeader {
     TscTimestamp timestamp;
 };
 
-/// Writes a WARN log-line prefix with a formatted TSC timestamp.
-/// Output: `\nWARN YYYY-MM-DD HH:MM:SS.nnnnnnnnn: `
-inline std::ostream &operator<<(std::ostream &os, const WarnHeader &hdr) {
-    os << "\nWARN " << hdr.timestamp << ": ";
-    return os;
-}
-
 /// Header written before each ERROR-level message payload.
 struct ErrorHeader {
     TscTimestamp timestamp;
 };
 
-/// Writes an ERROR log-line prefix with a formatted TSC timestamp.
-/// Output: `\nERRO YYYY-MM-DD HH:MM:SS.nnnnnnnnn: `
-inline std::ostream &operator<<(std::ostream &os, const ErrorHeader &hdr) {
-    os << "\nERRO " << hdr.timestamp << ": ";
+/// Concept constraining to the four log-header types.
+template <typename Hdr>
+concept LogHeader = std::same_as<Hdr, DebugHeader> || std::same_as<Hdr, InfoHeader> ||
+                    std::same_as<Hdr, WarnHeader> || std::same_as<Hdr, ErrorHeader>;
+
+/// Writes a log-line prefix with a formatted TSC timestamp.
+/// Output: `\nLEVEL YYYY-MM-DD HH:MM:SS.nnnnnnnnn: `
+/// where LEVEL is DEBG / INFO / WARN / ERRO depending on the header type.
+template <LogHeader Hdr>
+inline std::ostream &operator<<(std::ostream &os, const Hdr &hdr) {
+    if constexpr (std::same_as<Hdr, DebugHeader>)
+        os << "\nDEBG ";
+    else if constexpr (std::same_as<Hdr, InfoHeader>)
+        os << "\nINFO ";
+    else if constexpr (std::same_as<Hdr, WarnHeader>)
+        os << "\nWARN ";
+    else if constexpr (std::same_as<Hdr, ErrorHeader>)
+        os << "\nERRO ";
+    os << hdr.timestamp << ": ";
     return os;
 }
 
 /// A single element in the log queue — either a level header or a user-supplied
 /// argument.  The queue stores a sequence: [Header, arg1, arg2, ...] which the
 /// consumer thread flattens via `operator<<` on each variant alternative.
-using LogElement = std::variant<DebugHeader, InfoHeader, WarnHeader, ErrorHeader, std::uint64_t,
-                                std::int64_t, unsigned int, int, double, char, const char *>;
+using LogElement =
+    std::variant<DebugHeader, InfoHeader, WarnHeader, ErrorHeader, std::uint64_t, std::int64_t,
+                 std::uint32_t, std::int32_t, double, char, const char *>;
 
 /// Asynchronous, lock-free file logger.
 ///
@@ -183,11 +178,12 @@ public:
         return true;
     }
 
-    /// Placeholder for graceful shutdown (currently a no-op).
+    /// Flushes remaining messages and stops the background thread.
     ///
-    /// @note  The destructor performs the actual flush-and-join.  Callers
-    ///        that need explicit lifecycle control should rely on scoping
-    ///        rather than calling stop().
+    /// Logs a final INFO message, drains the output queue, sets the
+    /// running flag to false, joins the consumer thread, and closes
+    /// the output file.  Safe to call multiple times; subsequent calls
+    /// are no-ops once the logger has been stopped.
     void stop() noexcept {
         if (!running) {
             return;
