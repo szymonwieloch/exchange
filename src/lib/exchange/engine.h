@@ -5,6 +5,7 @@
 #include "book.h"
 #include "definitions.h"
 #include "lib/utils/log.h"
+#include "lib/utils/profiler.h"
 #include "md.h"
 #include "request.h"
 

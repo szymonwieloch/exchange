@@ -100,6 +100,9 @@ FetchContent_MakeAvailable(tomlplusplus)
 # Boost.ProgramOptions for command-line argument parsing
 find_package(Boost REQUIRED COMPONENTS program_options)
 
+# POSIX threads (required for std::thread, metrics server, etc.)
+find_package(Threads REQUIRED)
+
 # Subdirectories
 add_subdirectory(src)
 

@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <expected>
 #include <initializer_list>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <toml++/toml.hpp>
@@ -49,9 +50,17 @@ struct Config {
         int logger_core = -1;  ///< -1 = no pinning
     };
 
+    /// Prometheus metrics server configuration.
+    struct Metrics {
+        bool enabled = false;
+        uint16_t port = 9090;
+        std::string bind_address = "127.0.0.1";
+    };
+
     Logging logging;
     Engine engine;
     Threading threading;
+    Metrics metrics;
 };
 
 /// Validates that a TOML table contains only the allowed keys.
@@ -59,8 +68,7 @@ struct Config {
 /// Returns std::nullopt on success, or an error string naming the first
 /// unknown key found.
 [[nodiscard]] inline std::optional<std::string> validateTableKeys(
-    const toml::table& tbl,
-    std::initializer_list<std::string_view> allowed) noexcept {
+    const toml::table& tbl, std::initializer_list<std::string_view> allowed) noexcept {
     for (const auto& [key, value] : tbl) {
         bool known = false;
         for (auto a : allowed) {
@@ -161,6 +169,33 @@ struct Config {
     return result;
 }
 
+/// Parses the [metrics] section of a TOML table.
+[[nodiscard]] inline std::expected<Config::Metrics, std::string> parseMetrics(
+    const toml::table& tbl) noexcept {
+    Config::Metrics result;
+
+    if (const auto* metrics = tbl["metrics"].as_table()) {
+        if (auto val = (*metrics)["enabled"].value<bool>()) {
+            result.enabled = *val;
+        }
+        if (auto val = (*metrics)["port"].value<int64_t>()) {
+            if (*val < 1 || *val > 65535) {
+                return std::unexpected("metrics.port must be between 1 and 65535");
+            }
+            result.port = static_cast<uint16_t>(*val);
+        }
+        if (auto val = (*metrics)["bind_address"].value<std::string>()) {
+            result.bind_address = *val;
+        }
+
+        if (auto err = validateTableKeys(*metrics, {"enabled", "port", "bind_address"})) {
+            return std::unexpected(std::move(*err));
+        }
+    }
+
+    return result;
+}
+
 /// Parses a TOML configuration file into a @ref Config struct.
 ///
 /// @param path  Path to the TOML file.
@@ -182,10 +217,15 @@ struct Config {
         if (!threading)
             return std::unexpected(threading.error());
 
+        auto metrics = parseMetrics(tbl);
+        if (!metrics)
+            return std::unexpected(metrics.error());
+
         return Config{
             std::move(*logging),
             std::move(*engine),
             std::move(*threading),
+            std::move(*metrics),
         };
     } catch (const toml::parse_error& err) {
         return std::unexpected(std::string{err.what()});

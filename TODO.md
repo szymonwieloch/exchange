@@ -1,0 +1,8 @@
+- Metrics
+- Metric server
+- Some API. Aeron/SBE? FIX?
+- Load generator
+- MD Broadcast.
+- CI cleanup
+- Add readme
+- Add docker-compose to launch exchagne with the load generator + Aeron.
