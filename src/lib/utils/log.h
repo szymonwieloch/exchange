@@ -50,8 +50,14 @@ inline LogLevel operator&(LogLevel a, LogLevel b) {
 
 /// Severity comparison.  Returns true when @p a is at least as severe as @p b.
 /// Used for runtime level filtering: `if (min_level >= WARN)`.
-inline bool operator>=(LogLevel a, LogLevel b) {
+inline constexpr bool operator>=(LogLevel a, LogLevel b) {
     return static_cast<int>(a) >= static_cast<int>(b);
+}
+
+/// Strict severity comparison.  Returns true when @p a is strictly more severe than @p b.
+/// Used for compile-time filtering: `if constexpr (MIN_LOG_LEVEL > WARN)`.
+inline constexpr bool operator>(LogLevel a, LogLevel b) {
+    return static_cast<int>(a) > static_cast<int>(b);
 }
 
 /// Capacity of the internal MPSC ring buffer, in number of LogElement slots.
@@ -266,7 +272,9 @@ private:
     /// empty to avoid busy-waiting.  Flushes the file stream after each
     /// batch of messages.
     void run() noexcept {
-        info("Logger started");
+        if (min_level <= LogLevel::INFO) {
+            file << "\nINFO " << readTsc() << ": Logger started";
+        }
         while (running) {
             bool dirty = false;
             for (auto next = queue.getNextToRead(); queue.size() && next;
@@ -274,7 +282,6 @@ private:
                 dirty = true;
                 std::visit([this](auto val) { file << val; }, *next);
                 queue.updateReadIndex();
-                next = queue.getNextToRead();
             }
             if (dirty) {
                 file.flush();
