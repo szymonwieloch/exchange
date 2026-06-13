@@ -19,6 +19,7 @@ add_executable(exchange_tests
     test_orders_at_price.cpp
     test_queue.cpp
     test_thread.cpp
+    test_time.cpp
     test_user_orders.cpp
     ${PROJECT_SOURCE_DIR}/src/lib/exchange/engine.cpp
     ${PROJECT_SOURCE_DIR}/src/lib/exchange/book.cpp
