@@ -9,7 +9,7 @@
 #include <string_view>
 #include <vector>
 
-namespace utils::metrics {
+namespace utils {
 
 // ===================================================================
 //  Counter  —  monotonically increasing, atomic, lock-free
@@ -194,4 +194,4 @@ private:
     std::atomic<uint64_t> count_;
 };
 
-}  // namespace utils::metrics
+}  // namespace utils

@@ -18,6 +18,7 @@ add_executable(exchange_tests
     test_config.cpp
     test_log.cpp
     test_mempool.cpp
+    test_metrics.cpp
     test_orders_at_price.cpp
     test_queue.cpp
     test_thread.cpp
@@ -35,6 +36,7 @@ target_link_libraries(exchange_tests PRIVATE
     GTest::gtest_main
     tomlplusplus::tomlplusplus
     type_safe
+    Threads::Threads
 )
 
 # Register tests with CTest

@@ -1,5 +1,4 @@
 #include <boost/program_options.hpp>
-
 #include <iostream>
 #include <string>
 #include <string_view>
@@ -15,6 +14,8 @@
 #include "lib/utils/die.h"
 #include "lib/utils/log.h"
 #include "lib/utils/mem.h"
+#include "lib/utils/metrics.h"
+#include "lib/utils/metrics_server.h"
 #include "lib/utils/queue.h"
 #include "lib/utils/thread.h"
 
@@ -23,10 +24,9 @@ int main(int argc, char* argv[]) {
     namespace po = boost::program_options;
 
     po::options_description desc("Options");
-    desc.add_options()
-        ("help,h", "Show this help message")
-        ("config,c", po::value<std::string>()->default_value("config.toml"),
-         "Path to configuration file");
+    desc.add_options()("help,h", "Show this help message")(
+        "config,c", po::value<std::string>()->default_value("config.toml"),
+        "Path to configuration file");
 
     po::variables_map vm;
     try {
@@ -60,6 +60,34 @@ int main(int argc, char* argv[]) {
     std::cout << "Log file:  " << config.logging.file << std::endl;
     std::cout << "Tickers:   " << config.engine.tickers.size() << std::endl;
 
+    // ── Prometheus metrics ──────────────────────────────────────────
+    std::unique_ptr<utils::MetricsServer> metrics_server;
+
+    if (config.metrics.enabled) {
+        std::cout << "Metrics:   enabled (port " << config.metrics.port << ")" << std::endl;
+
+        // Callback invoked on each /metrics scrape.
+        // Extend with actual metric collection logic as needed.
+        auto metrics_callback = []() -> std::string {
+            // TODO: return Prometheus text-format metrics
+            return "";
+        };
+
+        auto server_cfg = utils::MetricsServer::Config{
+            .bind_address = config.metrics.bind_address,
+            .port = config.metrics.port,
+        };
+        metrics_server =
+            std::make_unique<utils::MetricsServer>(metrics_callback, server_cfg);
+
+        if (!metrics_server->start()) {
+            std::cerr << "Warning: failed to start metrics server on "
+                      << config.metrics.bind_address << ":" << config.metrics.port << std::endl;
+        }
+    } else {
+        std::cout << "Metrics:   disabled" << std::endl;
+    }
+
     // ── Create lock-free communication queues ──────────────────────
     auto request_queue = exchange::RequestLFQueue(exchange::MAX_USER_UPDATES);
     auto response_queue = exchange::ResponseLFQueue(exchange::MAX_USER_UPDATES);
@@ -91,6 +119,10 @@ int main(int argc, char* argv[]) {
     std::cin.get();
 
     // ── Graceful shutdown ──────────────────────────────────────────
+    if (metrics_server) {
+        metrics_server->stop();
+        std::cout << "Metrics server stopped." << std::endl;
+    }
     engine.stop();
     std::cout << "MatchingEngine stopped." << std::endl;
 
