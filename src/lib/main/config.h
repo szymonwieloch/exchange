@@ -11,8 +11,6 @@
 
 #include "lib/utils/log.h"
 
-namespace exchange {
-
 /// Configuration parsed from a TOML file.
 ///
 /// All settings are populated at startup by @ref parseConfig. The struct is
@@ -231,5 +229,3 @@ struct Config {
         return std::unexpected(std::string{err.what()});
     }
 }
-
-}  // namespace exchange
