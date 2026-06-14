@@ -19,6 +19,7 @@
 using utils::globalCalibration;
 using utils::readTsc;
 using utils::TscCalibration;
+using utils::TscDuration;
 using utils::TscTimestamp;
 
 // =============================================================================
@@ -103,27 +104,27 @@ TEST(TscTimestampTest, AdditionWrapsOnOverflow) {
 }
 
 // =============================================================================
-// TscTimestamp — subtraction
+// TscTimestamp — subtraction → TscDuration
 // =============================================================================
 
-TEST(TscTimestampTest, SubtractionSameType) {
+TEST(TscTimestampTest, SubtractionYieldsDuration) {
     const TscTimestamp a{500};
     const TscTimestamp b{200};
-    const TscTimestamp diff = a - b;
-    EXPECT_EQ(type_safe::get(diff), 300ULL);
+    const TscDuration diff = a - b;
+    EXPECT_EQ(type_safe::get(diff), 300);
 }
 
-TEST(TscTimestampTest, SubtractionToZero) {
+TEST(TscTimestampTest, SubtractionToZeroDuration) {
     const TscTimestamp a{100};
-    const TscTimestamp result = a - TscTimestamp{100};
-    EXPECT_EQ(type_safe::get(result), 0ULL);
+    const TscDuration result = a - TscTimestamp{100};
+    EXPECT_EQ(type_safe::get(result), 0);
 }
 
-TEST(TscTimestampTest, SubtractionWrapsOnUnderflow) {
+TEST(TscTimestampTest, SubtractionNegativeDuration) {
     const TscTimestamp a{0};
     const TscTimestamp b{1};
-    const TscTimestamp result = a - b;
-    EXPECT_EQ(type_safe::get(result), UINT64_MAX);  // wraps modulo 2^64
+    const TscDuration result = a - b;
+    EXPECT_EQ(type_safe::get(result), -1);
 }
 
 // =============================================================================

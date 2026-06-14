@@ -9,7 +9,7 @@ class Profiler {
 public:
     Profiler(MeasurementId mes_id) : start(readTsc()), mes_id(mes_id) {}
     ~Profiler() {
-        auto diff = readTsc() - start;
+        TscDuration diff = readTsc() - start;
         Handler(mes_id, diff);
     }
 

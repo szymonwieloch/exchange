@@ -11,19 +11,41 @@
 
 namespace utils {
 
+/// Strongly-typed wrapper representing a duration measured in TSC (Time Stamp
+/// Counter) ticks. Uses a signed 64-bit integer so that negative durations
+/// (when the subtrahend timestamp is later than the minuend) are representable.
+///
+/// This is the result type of subtracting two `TscTimestamp` values.
+struct TscDuration : type_safe::strong_typedef<TscDuration, std::int64_t>,
+                     type_safe::strong_typedef_op::equality_comparison<TscDuration>,
+                     type_safe::strong_typedef_op::relational_comparison<TscDuration>,
+                     type_safe::strong_typedef_op::addition<TscDuration>,
+                     type_safe::strong_typedef_op::subtraction<TscDuration> {
+    using strong_typedef::strong_typedef;
+};
+
 /// Strongly-typed wrapper around a raw x86 TSC (Time Stamp Counter) tick.
 ///
 /// Wrapping the `uint64_t` in a distinct type prevents accidental mixing of
 /// TSC values with other integer types (durations, price levels, etc.).
-/// Only addition and subtraction are permitted — multiplication, division,
-/// and modulo on raw TSC values have no meaningful semantics.
-struct TscTimestamp : type_safe::strong_typedef<TscTimestamp, std::uint64_t>,
-                      type_safe::strong_typedef_op::equality_comparison<TscTimestamp>,
-                      type_safe::strong_typedef_op::relational_comparison<TscTimestamp>,
-                      type_safe::strong_typedef_op::addition<TscTimestamp>,
-                      type_safe::strong_typedef_op::subtraction<TscTimestamp> {
+/// Addition of two timestamps is permitted for incrementing; subtraction of
+/// two timestamps yields a `TscDuration` (see free-function `operator-`).
+struct TscTimestamp
+    : type_safe::strong_typedef<TscTimestamp, std::uint64_t>,
+      type_safe::strong_typedef_op::equality_comparison<TscTimestamp>,
+      type_safe::strong_typedef_op::relational_comparison<TscTimestamp>,
+      type_safe::strong_typedef_op::addition<TscTimestamp>,
+      type_safe::strong_typedef_op::mixed_addition<TscTimestamp, TscDuration>,
+      type_safe::strong_typedef_op::mixed_subtraction_noncommutative<TscTimestamp, TscDuration> {
     using strong_typedef::strong_typedef;
 };
+
+/// Subtracting two absolute TSC timestamps yields a `TscDuration`, not
+/// another timestamp. This free function overrides any same-type subtraction
+/// that would otherwise return `TscTimestamp`.
+inline TscDuration operator-(TscTimestamp lhs, TscTimestamp rhs) noexcept {
+    return TscDuration{static_cast<std::int64_t>(type_safe::get(lhs) - type_safe::get(rhs))};
+}
 
 /// Reads the CPU's Time Stamp Counter (TSC) register.
 ///
