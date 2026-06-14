@@ -86,7 +86,7 @@ class MetricsServer final {
 public:
     /// Callback invoked on every /metrics scrape.
     /// Must return the Prometheus text-format payload.
-    using MetricsCallback = std::function<std::string()>;
+    using MetricsCallback = std::function<void(PrometheusFormatter&)>;
 
     /// Configuration for the HTTP server socket.
     struct Config {
@@ -197,11 +197,12 @@ private:
                 res.set(http::field::content_length, "0");
                 res.keep_alive(false);
             } else {
-                std::string body = callback();
+                PrometheusFormatter fmt;
+                callback(fmt);
                 res.result(http::status::ok);
                 res.set(http::field::content_type, "text/plain; version=0.0.4");
                 res.keep_alive(false);
-                res.body() = std::move(body);
+                res.body() = fmt.complete();
                 res.prepare_payload();
             }
 

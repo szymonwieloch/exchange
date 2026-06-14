@@ -207,7 +207,7 @@ TEST(MetricsRegistryTest, CollectsHistograms) {
 // ===================================================================
 
 TEST(MetricsServerTest, StartStop) {
-    auto cb = []() -> std::string { return ""; };
+    auto cb = [](PrometheusFormatter&) { };
     MetricsServer::Config cfg{.bind_address = "127.0.0.1", .port = 19090};
     MetricsServer server(cb, cfg);
 
@@ -220,7 +220,7 @@ TEST(MetricsServerTest, StartStop) {
 }
 
 TEST(MetricsServerTest, DoubleStartIsIdempotent) {
-    auto cb = []() -> std::string { return ""; };
+    auto cb = [](PrometheusFormatter&) { };
     MetricsServer::Config cfg{.bind_address = "127.0.0.1", .port = 19091};
     MetricsServer server(cb, cfg);
 
@@ -230,7 +230,7 @@ TEST(MetricsServerTest, DoubleStartIsIdempotent) {
 }
 
 TEST(MetricsServerTest, StopWithoutStartIsSafe) {
-    auto cb = []() -> std::string { return ""; };
+    auto cb = [](PrometheusFormatter&) { };
     MetricsServer server(cb, MetricsServer::Config{});
     server.stop();  // should not crash
 }

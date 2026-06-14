@@ -30,7 +30,7 @@
 
     logger.info("Metrics:   enabled (port ", metrics_cfg.port, ")");
 
-    auto callback = [&registry]() -> std::string { return registry.render(); };
+    auto callback = [&registry](utils::PrometheusFormatter& fmt) { registry.render(fmt); };
 
     auto server_cfg = utils::MetricsServer::Config{
         .bind_address = metrics_cfg.bind_address,
