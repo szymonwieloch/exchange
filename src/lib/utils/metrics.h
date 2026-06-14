@@ -93,15 +93,18 @@ private:
 
 /// A histogram with pre-configured, fixed bucket boundaries.
 ///
+/// @tparam T  Observed value type (e.g. double, float, int64_t).
+///
 /// All bucket counters, the sum, and the total count are atomically
 /// updated in the hot path.  Buckets are cumulative as required by
 /// Prometheus — each bucket counts observations ≤ its upper bound.
 ///
 /// Example buckets for order latency:
 /// ```
-/// Histogram h("order_latency_seconds", "Order processing latency",
-///             {0.0001, 0.0005, 0.001, 0.005, 0.01});
+/// Histogram<double> h("order_latency_seconds", "Order processing latency",
+///                     {0.0001, 0.0005, 0.001, 0.005, 0.01});
 /// ```
+template <typename T>
 class Histogram final {
 public:
     /// Constructs a histogram with the given bucket boundaries.
@@ -110,12 +113,12 @@ public:
     /// @param help     Human-readable description.
     /// @param buckets  Upper bounds of each bucket, must be sorted ascending.
     ///                 An implicit +Inf bucket is always present.
-    Histogram(std::string name, std::string help, std::vector<double> buckets) noexcept
+    Histogram(std::string name, std::string help, std::vector<T> buckets) noexcept
         : name_(std::move(name)),
           help_(std::move(help)),
           buckets_(std::move(buckets)),
           bucket_counts_(buckets_.size()),
-          sum_{0},
+          sum_{T{}},
           count_{0} {}
 
     Histogram(const Histogram&) = delete;
@@ -125,29 +128,18 @@ public:
     ///
     /// All buckets with upper bound ≥ @p val are incremented (cumulative
     /// histogram).  Sum and count are also updated.
-    void observe(double val) noexcept {
+    void observe(T val) noexcept {
         for (size_t i = 0; i < buckets_.size(); ++i) {
             if (val <= buckets_[i]) {
                 bucket_counts_[i].fetch_add(1, std::memory_order_relaxed);
             }
         }
-        // Reinterpret-cast the double to uint64_t for atomic add on the
-        // bit-pattern, then convert back.  This avoids a CAS loop but
-        // requires IEEE 754.  We assert correctness at startup.
-        uint64_t bits;
-        std::memcpy(&bits, &val, sizeof(bits));
-        uint64_t old_bits = sum_.load(std::memory_order_relaxed);
-        double old_val, new_val;
-        do {
-            std::memcpy(&old_val, &old_bits, sizeof(old_val));
-            new_val = old_val + val;
-            uint64_t new_bits;
-            std::memcpy(&new_bits, &new_val, sizeof(new_bits));
-            if (sum_.compare_exchange_weak(old_bits, new_bits, std::memory_order_relaxed,
+        // CAS loop — works for any T with operator+, including
+        // std::chrono::duration types that lack atomic fetch_add.
+        T expected = sum_.load(std::memory_order_relaxed);
+        while (!sum_.compare_exchange_weak(expected, expected + val, std::memory_order_relaxed,
                                            std::memory_order_relaxed)) {
-                break;
-            }
-        } while (true);
+        }
         count_.fetch_add(1, std::memory_order_relaxed);
     }
 
@@ -161,23 +153,18 @@ public:
         return result;
     }
 
-    /// Returns the upper bound of bucket @p i, or +Inf for i == size().
-    [[nodiscard]] double bucketBound(size_t i) const noexcept {
+    /// Returns the upper bound of bucket @p i.
+    [[nodiscard]] T bucketBound(size_t i) const noexcept {
         if (i < buckets_.size())
             return buckets_[i];
-        return std::numeric_limits<double>::infinity();
+        return std::numeric_limits<T>::max();
     }
 
     /// Number of finite buckets (excluding +Inf).
     [[nodiscard]] size_t bucketCount() const noexcept { return buckets_.size(); }
 
     /// Sum of all observed values.
-    [[nodiscard]] double sum() const noexcept {
-        uint64_t bits = sum_.load(std::memory_order_relaxed);
-        double result;
-        std::memcpy(&result, &bits, sizeof(result));
-        return result;
-    }
+    [[nodiscard]] T sum() const noexcept { return sum_.load(std::memory_order_relaxed); }
 
     /// Total number of observations.
     [[nodiscard]] uint64_t count() const noexcept { return count_.load(std::memory_order_relaxed); }
@@ -188,9 +175,9 @@ public:
 private:
     std::string name_;
     std::string help_;
-    std::vector<double> buckets_;
+    std::vector<T> buckets_;
     std::vector<std::atomic<uint64_t>> bucket_counts_;
-    std::atomic<uint64_t> sum_;  // bit-cast of double
+    std::atomic<T> sum_;
     std::atomic<uint64_t> count_;
 };
 

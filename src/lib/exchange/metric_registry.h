@@ -19,16 +19,28 @@ class MetricRegistry final {
 public:
     utils::Counter add_order;
     utils::Counter cancel_order;
-    utils::Histogram add_order_latency;
-    utils::Histogram cancel_order_latency;
+    utils::Histogram<std::chrono::nanoseconds> add_order_latency;
+    utils::Histogram<std::chrono::nanoseconds> cancel_order_latency;
 
     MetricRegistry()
         : add_order("orders_added_total", "Total number of orders added"),
           cancel_order("orders_cancelled_total", "Total number of orders cancelled"),
           add_order_latency("order_add_latency_seconds", "Order add latency in seconds",
-                            {0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1}),
+                            {std::chrono::nanoseconds(100'000),
+                             std::chrono::nanoseconds(500'000),
+                             std::chrono::nanoseconds(1'000'000),
+                             std::chrono::nanoseconds(5'000'000),
+                             std::chrono::nanoseconds(10'000'000),
+                             std::chrono::nanoseconds(50'000'000),
+                             std::chrono::nanoseconds(100'000'000)}),
           cancel_order_latency("order_cancel_latency_seconds", "Order cancel latency in seconds",
-                               {0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1}) {}
+                               {std::chrono::nanoseconds(100'000),
+                                std::chrono::nanoseconds(500'000),
+                                std::chrono::nanoseconds(1'000'000),
+                                std::chrono::nanoseconds(5'000'000),
+                                std::chrono::nanoseconds(10'000'000),
+                                std::chrono::nanoseconds(50'000'000),
+                                std::chrono::nanoseconds(100'000'000)}) {}
 
     /// Serialises all registered metrics into @p fmt.
     void render(utils::PrometheusFormatter& fmt) const {

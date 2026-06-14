@@ -13,6 +13,28 @@ namespace utils {
 namespace beast = boost::beast;
 namespace http = beast::http;
 
+// -- helpers for Prometheus-compatible double conversion ------------------
+
+template <typename T>
+struct is_duration_impl : std::false_type {};
+
+template <typename Rep, typename Period>
+struct is_duration_impl<std::chrono::duration<Rep, Period>> : std::true_type {};
+
+template <typename T>
+inline constexpr bool is_duration_v = is_duration_impl<T>::value;
+
+/// Converts a metric value to a Prometheus-compatible double.
+/// std::chrono::duration types are converted to seconds.
+template <typename T>
+double toPrometheusDouble(T val) noexcept {
+    if constexpr (is_duration_v<T>) {
+        return std::chrono::duration<double>(val).count();
+    } else {
+        return static_cast<double>(val);
+    }
+}
+
 /// Formats metrics in the Prometheus exposition format.
 ///
 /// Call addGauge/addCounter/addHistogram for each metric, then
@@ -37,18 +59,19 @@ public:
     }
 
     /// Appends a Histogram metric in Prometheus text format.
-    void addHistogram(const Histogram& h) {
+    template <typename T>
+    void addHistogram(const Histogram<T>& h) {
         appendHelp(h.name(), h.help());
         appendType(h.name(), "histogram");
 
         const auto bucket_vals = h.bucketValues();
         const size_t n = h.bucketCount();
         for (size_t i = 0; i < n; ++i) {
-            buf << h.name() << "_bucket{le=\"" << h.bucketBound(i) << "\"} " << bucket_vals[i]
-                << '\n';
+            buf << h.name() << "_bucket{le=\"" << toPrometheusDouble(h.bucketBound(i)) << "\"} "
+                << bucket_vals[i] << '\n';
         }
         buf << h.name() << "_bucket{le=\"+Inf\"} " << bucket_vals[n] << '\n';
-        buf << h.name() << "_sum " << h.sum() << '\n';
+        buf << h.name() << "_sum " << toPrometheusDouble(h.sum()) << '\n';
         buf << h.name() << "_count " << h.count() << '\n';
         buf << '\n';
     }

@@ -108,14 +108,14 @@ TEST(GaugeTest, ThreadSafe) {
 // ===================================================================
 
 TEST(HistogramTest, StartsAtZero) {
-    Histogram h("test_histogram", "", {1.0, 5.0, 10.0});
+    Histogram<double> h("test_histogram", "", {1.0, 5.0, 10.0});
     EXPECT_EQ(h.count(), 0ULL);
     EXPECT_DOUBLE_EQ(h.sum(), 0.0);
     EXPECT_EQ(h.bucketCount(), 3);
 }
 
 TEST(HistogramTest, SingleObservation) {
-    Histogram h("test_histogram", "", {1.0, 5.0, 10.0});
+    Histogram<double> h("test_histogram", "", {1.0, 5.0, 10.0});
     h.observe(3.0);
     EXPECT_EQ(h.count(), 1ULL);
     EXPECT_DOUBLE_EQ(h.sum(), 3.0);
@@ -129,7 +129,7 @@ TEST(HistogramTest, SingleObservation) {
 }
 
 TEST(HistogramTest, MultipleObservations) {
-    Histogram h("test_histogram", "", {0.5, 1.0, 2.0});
+    Histogram<double> h("test_histogram", "", {0.5, 1.0, 2.0});
     h.observe(0.3);  // in bucket 0,1,2
     h.observe(0.7);  // in bucket 1,2
     h.observe(1.5);  // in bucket 2
@@ -146,11 +146,13 @@ TEST(HistogramTest, MultipleObservations) {
 }
 
 TEST(HistogramTest, BucketBounds) {
-    Histogram h("test_histogram", "", {0.01, 0.05, 0.1});
+    Histogram<double> h("test_histogram", "", {0.01, 0.05, 0.1});
     EXPECT_DOUBLE_EQ(h.bucketBound(0), 0.01);
     EXPECT_DOUBLE_EQ(h.bucketBound(1), 0.05);
     EXPECT_DOUBLE_EQ(h.bucketBound(2), 0.1);
-    EXPECT_TRUE(std::isinf(h.bucketBound(3)));
+    // out-of-bounds returns numeric_limits::max() as a sentinel — the
+    // Prometheus formatter uses the literal "+Inf" for the implicit bucket
+    EXPECT_DOUBLE_EQ(h.bucketBound(3), std::numeric_limits<double>::max());
 }
 
 // ===================================================================
@@ -187,7 +189,7 @@ TEST(MetricsRegistryTest, CollectsGauges) {
 
 TEST(MetricsRegistryTest, CollectsHistograms) {
     MetricsRegistry reg;
-    auto* h = reg.add(std::make_unique<Histogram>("my_hist", "A histogram.", std::vector<double>{0.5, 1.0}));
+    auto* h = reg.add(std::make_unique<Histogram<double>>("my_hist", "A histogram.", std::vector<double>{0.5, 1.0}));
     h->observe(0.3);
     h->observe(0.7);
 
@@ -207,7 +209,7 @@ TEST(MetricsRegistryTest, CollectsHistograms) {
 // ===================================================================
 
 TEST(MetricsServerTest, StartStop) {
-    auto cb = [](PrometheusFormatter&) { };
+    auto cb = [](PrometheusFormatter&) {};
     MetricsServer::Config cfg{.bind_address = "127.0.0.1", .port = 19090};
     MetricsServer server(cb, cfg);
 
@@ -220,7 +222,7 @@ TEST(MetricsServerTest, StartStop) {
 }
 
 TEST(MetricsServerTest, DoubleStartIsIdempotent) {
-    auto cb = [](PrometheusFormatter&) { };
+    auto cb = [](PrometheusFormatter&) {};
     MetricsServer::Config cfg{.bind_address = "127.0.0.1", .port = 19091};
     MetricsServer server(cb, cfg);
 
@@ -230,7 +232,7 @@ TEST(MetricsServerTest, DoubleStartIsIdempotent) {
 }
 
 TEST(MetricsServerTest, StopWithoutStartIsSafe) {
-    auto cb = [](PrometheusFormatter&) { };
+    auto cb = [](PrometheusFormatter&) {};
     MetricsServer server(cb, MetricsServer::Config{});
     server.stop();  // should not crash
 }
