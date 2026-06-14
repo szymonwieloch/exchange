@@ -7,13 +7,14 @@
 #include "lib/utils/log.h"
 #include "lib/utils/profiler.h"
 #include "md.h"
+#include "metric_registry.h"
 #include "request.h"
 
 namespace exchange {
 class MatchingEngine final {
 public:
     MatchingEngine(RequestLFQueue *user_requests, ResponseLFQueue *user_responses,
-                   MDLFQueue *market_updates, const std::string &log_file,
+                   MDLFQueue *market_updates, MetricRegistry &metrics, const std::string &log_file,
                    utils::LogLevel log_level);
     ~MatchingEngine();
     void start();
@@ -37,6 +38,7 @@ private:
     std::atomic<bool> is_running = false;
     std::string time_str;
     utils::Logger logger;
+    MetricRegistry &metrics;
     OrderBookHashMap ticker_order_book;
 };
 

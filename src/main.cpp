@@ -103,8 +103,8 @@ int main(int argc, char* argv[]) {
     auto md_queue = exchange::MDLFQueue(exchange::MAX_MARKET_UPDATES);
 
     // ── Instantiate the matching engine ────────────────────────────
-    exchange::MatchingEngine engine(&request_queue, &response_queue, &md_queue, config.logging.file,
-                                    config.logging.level);
+    exchange::MatchingEngine engine(&request_queue, &response_queue, &md_queue, mreg,
+                                    config.logging.file, config.logging.level);
 
     if (config.threading.engine_core >= 0) {
         if (!utils::setThreadCore(config.threading.engine_core)) {
