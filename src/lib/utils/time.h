@@ -99,6 +99,7 @@ public:
     // GCC/Clang 128-bit integer — used for fixed-point TSC→ns conversion.
     // Wrapped in __extension__ to pass -Wpedantic.
     __extension__ typedef unsigned __int128 uint128_t;
+    __extension__ typedef signed __int128 int128_t;
 
     /// Converts a TSC timestamp to a system_clock time_point.
     ///
@@ -117,6 +118,25 @@ public:
             (static_cast<uint128_t>(type_safe::get(tsc) - tsc_base) * 1'000'000'000ULL) /
             static_cast<uint128_t>(tsc_freq));
         return wall_clock_base + std::chrono::nanoseconds(elapsed_ns);
+    }
+
+    /// Converts a TSC duration to a chrono::nanoseconds duration.
+    ///
+    /// Uses the same pre-computed TSC frequency as `toChrono(TscTimestamp)`,
+    /// but returns a relative duration rather than an absolute time point.
+    /// Handles negative durations correctly via signed 128-bit arithmetic.
+    ///
+    /// @param duration  A TSC duration (e.g. from subtracting two timestamps).
+    /// @return The equivalent duration in nanoseconds, or zero if the
+    ///         calibration has not been performed yet.
+    [[nodiscard]] std::chrono::nanoseconds toChrono(TscDuration duration) const noexcept {
+        if (tsc_freq == 0) [[unlikely]] {
+            return std::chrono::nanoseconds{0};
+        }
+        const auto ns = static_cast<std::int64_t>(
+            (static_cast<int128_t>(type_safe::get(duration)) * 1'000'000'000LL) /
+            static_cast<int128_t>(tsc_freq));
+        return std::chrono::nanoseconds{ns};
     }
 
     /// Returns `true` if `calibrate()` has been called and the TSC

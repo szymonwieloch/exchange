@@ -11,7 +11,7 @@ MatchingEngine::MatchingEngine(RequestLFQueue *client_requests, ResponseLFQueue 
       outgoing_md_updates(market_updates),
       logger(log_file, log_level),
       metrics(metrics),
-      ticker_order_book(&logger, outgoing_ogw_responses, outgoing_md_updates) {
+      ticker_order_book(&logger, outgoing_ogw_responses, outgoing_md_updates, metrics) {
     logger.info("MatchingEngine constructed");
 }
 
@@ -57,6 +57,7 @@ void MatchingEngine::processClientRequest(const Request *client_request) noexcep
     auto &order_book = *ticker_order_book.find(client_request->ticker_id);
     switch (client_request->type) {
         case RequestType::NEW: {
+            utils::Profiler<int> profiler(metrics.add_order_latency);
             logger.debug(
                 "NEW order: user=", static_cast<uint64_t>(type_safe::get(client_request->user_id)),
                 " ticker=", static_cast<uint64_t>(type_safe::get(client_request->ticker_id)),
@@ -67,15 +68,18 @@ void MatchingEngine::processClientRequest(const Request *client_request) noexcep
             (void)order_book.add(client_request->user_id, client_request->order_id,
                                  client_request->ticker_id, client_request->side,
                                  client_request->price, client_request->qty);
+            metrics.add_order.inc();
 
         } break;
         case RequestType::CANCEL: {
+            utils::Profiler<int> profiler(metrics.cancel_order_latency);
             logger.debug("CANCEL request: user=",
                          static_cast<uint64_t>(type_safe::get(client_request->user_id)), " ticker=",
                          static_cast<uint64_t>(type_safe::get(client_request->ticker_id)),
                          " oid=", type_safe::get(client_request->order_id));
             order_book.cancel(client_request->user_id, client_request->order_id,
                               client_request->ticker_id);
+            metrics.cancel_order.inc();
         } break;
         default: {
             logger.error("Received invalid request-type: ",

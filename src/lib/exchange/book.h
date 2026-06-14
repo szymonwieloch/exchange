@@ -47,6 +47,7 @@
 #include "user_orders.h"
 
 namespace exchange {
+class MetricRegistry;
 
 /// A single ticker's limit order book implementing price-time priority matching.
 ///
@@ -68,9 +69,11 @@ public:
     /// @param logger         Non-owning pointer to the system logger.
     /// @param responses      Non-owning pointer to the response output queue.
     /// @param market_updates Non-owning pointer to the market-data output queue.
+    /// @param metrics        Reference to the shared metric registry (for counters,
+    ///                       gauges, and histograms).
     /// @post  The book is empty (no orders on either side).
     OrderBook(TickerId ticker_id, utils::Logger *logger, ResponseLFQueue *responses,
-              MDLFQueue *market_updates);
+              MDLFQueue *market_updates, MetricRegistry &metrics);
     ~OrderBook();
 
     /// Processes a new limit order.
@@ -194,6 +197,7 @@ private:
     utils::MemPool<Order> order_pool;       ///< Pre-allocated pool of Order objects.
     MarketOrderId next_market_order_id{0};  ///< Monotonically increasing market-order ID counter.
     utils::Logger *logger = nullptr;        ///< Non-owning: diagnostic logger.
+    MetricRegistry *metrics = nullptr;      ///< Non-owning: shared metric registry.
 };
 
 /// Fixed-size array of per-ticker @ref OrderBook instances.
@@ -211,10 +215,13 @@ public:
     /// @param logger         Forwarded to each @ref OrderBook.
     /// @param responses      Forwarded to each @ref OrderBook.
     /// @param market_updates Forwarded to each @ref OrderBook.
-    OrderBookHashMap(utils::Logger *logger, ResponseLFQueue *responses, MDLFQueue *market_updates) {
+    /// @param metrics        Forwarded to each @ref OrderBook.
+    OrderBookHashMap(utils::Logger *logger, ResponseLFQueue *responses, MDLFQueue *market_updates,
+                     MetricRegistry &metrics) {
         for (size_t i = 0; i < ticker_to_order_book.size(); ++i) {
-            ticker_to_order_book[i] = std::make_unique<OrderBook>(
-                TickerId{static_cast<std::uint16_t>(i)}, logger, responses, market_updates);
+            ticker_to_order_book[i] =
+                std::make_unique<OrderBook>(TickerId{static_cast<std::uint16_t>(i)}, logger,
+                                            responses, market_updates, metrics);
         }
     }
 

@@ -1,16 +1,18 @@
 #include "book.h"
 
 #include "md.h"
+#include "metric_registry.h"
 #include "request.h"
 
 namespace exchange {
 OrderBook::OrderBook(TickerId ticker_id, utils::Logger* logger, ResponseLFQueue* responses,
-                     MDLFQueue* market_updates)
+                     MDLFQueue* market_updates, MetricRegistry& metrics)
     : ticker_id(ticker_id),
       responses(responses),
       market_updates(market_updates),
       order_pool(MAX_ORDER_IDS),
-      logger(logger) {
+      logger(logger),
+      metrics(&metrics) {
     logger->debug("OrderBook created for ticker=",
                   static_cast<uint64_t>(type_safe::get(ticker_id)));
 }
@@ -160,6 +162,8 @@ void OrderBook::match(TickerId ticker_id, UserId user_id, Side side, OrderId cli
                                   order->market_order_id, order->side, itr->price, fill_qty,
                                   order->qty));
 
+    metrics->match_order.inc();
+
     auto market_update = MDUpdate::trade(ticker_id, side, itr->price, fill_qty);
     sendMarketUpdate(market_update);
 
@@ -188,6 +192,7 @@ bool OrderBook::addOrder(Order* order, OrdersAtPrice* at_price_hint) noexcept {
                       type_safe::get(order->price));
         return false;
     }
+    metrics->active_orders.inc();
     return true;
 }
 
@@ -204,6 +209,7 @@ void OrderBook::removeOrder(Order* order, OrdersAtPrice* at_price_hint) noexcept
         orders_at_price.remove(order);
     }
     order_pool.deallocate(order);
+    metrics->active_orders.dec();
 }
 
 void OrderBook::sendResponse(const Response& response) noexcept {

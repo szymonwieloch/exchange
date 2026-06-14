@@ -1,21 +1,24 @@
 #pragma once
 
+#include "metrics.h"
 #include "time.h"
 
 namespace utils {
 
-template <typename MeasurementId, typename Handler>
+using ProfilingStats = Histogram<std::chrono::nanoseconds>;
+
+template <typename MeasurementId>
 class Profiler {
 public:
-    Profiler(MeasurementId mes_id) : start(readTsc()), mes_id(mes_id) {}
+    Profiler(ProfilingStats& stats) : start(readTsc()), stats(stats) {}
     ~Profiler() {
         TscDuration diff = readTsc() - start;
-        Handler(mes_id, diff);
+        stats.observe(globalCalibration().toChrono(diff));
     }
 
 private:
     TscTimestamp start;
-    MeasurementId mes_id;
+    ProfilingStats& stats;
 };
 
 }  // namespace utils

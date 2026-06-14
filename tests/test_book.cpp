@@ -14,6 +14,7 @@
 #include "lib/exchange/book.h"
 #include "lib/exchange/constants.h"
 #include "lib/exchange/md.h"
+#include "lib/exchange/metric_registry.h"
 #include "lib/exchange/order.h"
 #include "lib/exchange/request.h"
 #include "lib/utils/log.h"
@@ -54,9 +55,12 @@ protected:
     utils::Logger *logger = new utils::Logger("test_book.log", utils::LogLevel::DEBUG);
     ResponseLFQueue responses{kQueueCapacity};
     MDLFQueue market_updates{kQueueCapacity};
+    exchange::MetricRegistry metrics;
 
     /// Creates an OrderBook for Ticker 0 with the fixture's queues.
-    OrderBook makeBook() { return OrderBook{TickerId{0}, logger, &responses, &market_updates}; }
+    OrderBook makeBook() {
+        return OrderBook{TickerId{0}, logger, &responses, &market_updates, metrics};
+    }
 
     void SetUp() override {
         // Queues are default-constructed with kQueueCapacity elements; no
@@ -109,7 +113,7 @@ protected:
 // ===================================================================
 
 TEST_F(OrderBookTest, ConstructDoesNotThrow) {
-    EXPECT_NO_THROW(OrderBook(TickerId{0}, logger, &responses, &market_updates));
+    EXPECT_NO_THROW(OrderBook(TickerId{0}, logger, &responses, &market_updates, metrics));
 }
 
 TEST_F(OrderBookTest, NewBookHasNoPendingMessages) {
@@ -912,7 +916,7 @@ TEST_F(OrderBookTest, NonCrossingSpreadBothSidesRest) {
 // ===================================================================
 
 TEST_F(OrderBookTest, HashMapPrepopulatesAllTickers) {
-    OrderBookHashMap map(logger, &responses, &market_updates);
+    OrderBookHashMap map(logger, &responses, &market_updates, metrics);
 
     for (uint16_t i = 0; i < exchange::MAX_TICKERS; ++i) {
         auto *book = map.find(TickerId{i});
@@ -921,7 +925,7 @@ TEST_F(OrderBookTest, HashMapPrepopulatesAllTickers) {
 }
 
 TEST_F(OrderBookTest, DifferentTickersAreIsolated) {
-    OrderBookHashMap map(logger, &responses, &market_updates);
+    OrderBookHashMap map(logger, &responses, &market_updates, metrics);
 
     auto *book0 = map.find(TickerId{0});
     auto *book1 = map.find(TickerId{1});
@@ -947,7 +951,7 @@ TEST_F(OrderBookTest, DifferentTickersAreIsolated) {
 }
 
 TEST_F(OrderBookTest, SameTickerCrossBookMatching) {
-    OrderBookHashMap map(logger, &responses, &market_updates);
+    OrderBookHashMap map(logger, &responses, &market_updates, metrics);
 
     auto *book = map.find(TickerId{3});
 
