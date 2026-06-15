@@ -14,8 +14,7 @@ namespace exchange {
 class MatchingEngine final {
 public:
     MatchingEngine(RequestLFQueue *user_requests, ResponseLFQueue *user_responses,
-                   MDLFQueue *market_updates, MetricRegistry &metrics, const std::string &log_file,
-                   utils::LogLevel log_level);
+                   MDLFQueue *market_updates, MetricRegistry &metrics, utils::Logger &logger);
     ~MatchingEngine();
     void start();
     void stop();
@@ -37,7 +36,7 @@ private:
     MDLFQueue *outgoing_md_updates = nullptr;
     std::atomic<bool> is_running = false;
     std::string time_str;
-    utils::Logger logger;
+    utils::Logger &logger;
     MetricRegistry &metrics;
     OrderBookHashMap ticker_order_book;
 };

@@ -5,11 +5,11 @@
 namespace exchange {
 MatchingEngine::MatchingEngine(RequestLFQueue *client_requests, ResponseLFQueue *client_responses,
                                MDLFQueue *market_updates, MetricRegistry &metrics,
-                               const std::string &log_file, utils::LogLevel log_level)
+                               utils::Logger &logger)
     : incoming_requests(client_requests),
       outgoing_ogw_responses(client_responses),
       outgoing_md_updates(market_updates),
-      logger(log_file, log_level),
+      logger(logger),
       metrics(metrics),
       ticker_order_book(&logger, outgoing_ogw_responses, outgoing_md_updates, metrics) {
     logger.info("MatchingEngine constructed");
