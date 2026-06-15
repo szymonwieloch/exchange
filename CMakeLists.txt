@@ -97,6 +97,26 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(glaze)
 
+# fixpp — header-only type-safe FIX protocol library (C++14/20)
+FetchContent_Declare(
+    fixpp
+    GIT_REPOSITORY https://github.com/Abc-Arbitrage/fixpp.git
+    GIT_TAG d99ff616d7928b5c308adac1ef6fc3ebe34d7c1e
+)
+
+# Don't use FetchContent_MakeAvailable — fixpp's CMakeLists.txt is designed
+# as a standalone project and would pull in GTest / modify global flags.
+FetchContent_GetProperties(fixpp)
+if(NOT fixpp_POPULATED)
+    FetchContent_Populate(fixpp)
+endif()
+
+# fixpp is header-only; create an INTERFACE target for clean dependency management.
+add_library(fixpp INTERFACE)
+target_include_directories(fixpp INTERFACE
+    ${fixpp_SOURCE_DIR}/include
+)
+
 # Boost.ProgramOptions for command-line argument parsing
 find_package(Boost REQUIRED COMPONENTS program_options)
 

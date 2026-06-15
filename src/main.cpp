@@ -107,7 +107,7 @@ int main(int argc, char* argv[]) {
     // ── FIX gateway ──────────────────────────────────────────────────
     exchange::AssetTranslator asset_translator(config.engine.tickers);
     // auto fix_request_queue = exchange::fix::FixRequestQueue(exchange::MAX_USER_UPDATES);
-    // std::unique_ptr<exchange::fix::FixGateway> fix_gateway;
+    std::unique_ptr<exchange::fix::FixGateway> fix_gateway;
 
     if (config.fix.enabled) {
         exchange::fix::FixGatewayConfig fix_cfg{
@@ -119,11 +119,11 @@ int main(int argc, char* argv[]) {
             .target_comp_id = config.fix.target_comp_id,
             .heartbeat_interval = config.fix.heartbeat_interval,
         };
-        // fix_gateway = std::make_unique<exchange::fix::FixGateway>(fix_cfg, asset_translator,
-        //                                                           fix_request_queue, logger);
-        // if (!fix_gateway->start()) {
-        //     logger.error("Failed to start FIX gateway");
-        // }
+        fix_gateway =
+            std::make_unique<exchange::fix::FixGateway>(fix_cfg, asset_translator, logger);
+        if (!fix_gateway->start()) {
+            logger.error("Failed to start FIX gateway");
+        }
     } else {
         logger.info("FIX gateway disabled");
     }
@@ -143,11 +143,11 @@ int main(int argc, char* argv[]) {
 
     std::cin.get();
 
-    // // Graceful shutdown
-    // if (fix_gateway) {
-    //     fix_gateway->stop();
-    //     logger.info("FIX gateway stopped.");
-    // }
+    // Graceful shutdown
+    if (fix_gateway) {
+        fix_gateway->stop();
+        logger.info("FIX gateway stopped.");
+    }
     if (metrics_server) {
         metrics_server->stop();
         logger.info("Metrics server stopped.");
