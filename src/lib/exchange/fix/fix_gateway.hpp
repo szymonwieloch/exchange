@@ -20,6 +20,8 @@
 #include "lib/exchange/asset_translator.hpp"
 #include "lib/utils/log.h"
 
+#include "lib/exchange/request.h"
+
 namespace exchange::fix {
 /// FIX Gateway — accepts TCP connections and manages FIX sessions.
 ///
@@ -35,7 +37,7 @@ public:
     /// @param engine_queue  MPSC queue for pushing parsed Requests to the engine.
     /// @param logger   Logger instance for all gateway events.
     FixGateway(const FixGatewayConfig& config, const AssetTranslator& translator,
-               utils::Logger& logger);
+               RequestLFQueue& request_queue, utils::Logger& logger);
 
     ~FixGateway();
 
@@ -68,6 +70,7 @@ private:
     const FixGatewayConfig config_;
     const AssetTranslator& translator_;
     utils::Logger& logger_;
+    RequestLFQueue& request_queue_;
 
     boost::asio::io_context io_context_;
     WorkGuard work_guard_;

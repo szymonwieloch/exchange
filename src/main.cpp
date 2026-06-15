@@ -120,7 +120,7 @@ int main(int argc, char* argv[]) {
             .heartbeat_interval = config.fix.heartbeat_interval,
         };
         fix_gateway =
-            std::make_unique<exchange::fix::FixGateway>(fix_cfg, asset_translator, logger);
+            std::make_unique<exchange::fix::FixGateway>(fix_cfg, asset_translator, request_queue, logger);
         if (!fix_gateway->start()) {
             logger.error("Failed to start FIX gateway");
         }
