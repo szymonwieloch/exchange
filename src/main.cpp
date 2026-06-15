@@ -106,9 +106,9 @@ int main(int argc, char* argv[]) {
     exchange::MatchingEngine engine(&request_queue, &response_queue, &md_queue, mreg,
                                     config.logging.file, config.logging.level);
 
-    if (config.threading.engine_core >= 0) {
-        if (!utils::setThreadCore(config.threading.engine_core)) {
-            logger.error("failed to pin engine thread to core ", config.threading.engine_core);
+    if (config.threading.engine_core) {
+        if (!utils::setThreadCore(config.threading.engine_core.value())) {
+            logger.error("failed to pin engine thread to core ", *config.threading.engine_core);
         }
     }
 

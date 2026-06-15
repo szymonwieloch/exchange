@@ -9,7 +9,7 @@
 #include <thread>
 
 #include "queue.h"
-#include "thread.h"
+#include "thread_utils.h"
 #include "time.h"
 
 namespace utils {

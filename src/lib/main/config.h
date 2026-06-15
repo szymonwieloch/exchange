@@ -45,8 +45,8 @@ struct Config {
 
     /// Thread-pinning configuration.
     struct Threading {
-        int engine_core = -1;  ///< -1 = no pinning
-        int logger_core = -1;  ///< -1 = no pinning
+        std::optional<int> engine_core;
+        std::optional<int> logger_core;
     };
 
     /// Prometheus metrics server configuration.
@@ -102,22 +102,6 @@ struct glz::meta<Config> {
 };
 
 // ── Parse helpers ───────────────────────────────────────────────────────
-
-/// Parses a LogLevel from a string.
-///
-/// Recognised values (case-sensitive): "debug", "info", "warn", "error".
-/// Returns empty option on unknown value.
-[[nodiscard]] inline std::optional<utils::LogLevel> parseLogLevel(std::string_view level) noexcept {
-    if (level == "debug")
-        return utils::LogLevel::DEBUG;
-    else if (level == "info")
-        return utils::LogLevel::INFO;
-    else if (level == "warn")
-        return utils::LogLevel::WARN;
-    else if (level == "error")
-        return utils::LogLevel::ERROR;
-    return std::nullopt;
-}
 
 /// Parses a TOML configuration file into a @ref Config struct.
 ///

@@ -1,35 +1,77 @@
 #pragma once
 
-#include <pthread.h>
-
+#include <cassert>
+#include <optional>
 #include <thread>
+
+#include "log.h"
+#include "thread_utils.h"
 
 namespace utils {
 
-/// Pins the calling thread to a specific CPU core (Linux-only).
+/// Lightweight thread wrapper with optional CPU pinning and naming.
 ///
-/// Uses pthread_setaffinity_np which is a Linux/GNU extension. When running
-/// on a non-Linux platform the function is still callable but returns false.
-///
-/// @param core_id  zero-based CPU core index to pin to.
-/// @return true if affinity was successfully set, false otherwise (e.g.
-///         invalid core id, insufficient privileges, or unsupported OS).
-[[nodiscard]] inline bool setThreadCore(int core_id) noexcept {
-    cpu_set_t cpuset;
-    CPU_ZERO(&cpuset);
-    CPU_SET(core_id, &cpuset);
-    return (pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset) == 0);
-}
-
+/// The callback receives a const reference to the running flag so it can
+/// poll for stop requests.  Errors during setup (core pinning / naming)
+/// and unhandled exceptions are reported through the injected Logger.
 class Thread {
 public:
     Thread() = delete;
-    Thread(std::string name, std::optional<int> cpu) : name(name), cpu(cpu) {}
+
+    /// @param name    Non-owning pointer to a thread name (15 chars max for Linux).
+    /// @param logger  Used for warning/error messages during the thread lifetime.
+    /// @param cpu     If set, the thread is pinned to this core.
+    Thread(const char* name, Logger& logger, std::optional<int> cpu = {})
+        : name_(name), logger_(logger), cpu_(cpu) {
+        assert(name_);
+    }
+
+    /// Launches the thread.  Returns false if already running.
+    template <typename T>
+    [[nodiscard]] bool start(T&& callback) noexcept {
+        bool expected = false;
+        if (!running_.compare_exchange_strong(expected, true)) {
+            return false;
+        }
+        thread_ = std::thread(
+            [this, cb = std::forward<T>(callback)]() { run(std::forward<decltype(cb)>(cb)); });
+        return true;
+    }
+
+    /// Signals the thread to stop and joins it.
+    void stop() noexcept {
+        running_ = false;
+        if (thread_.joinable()) {
+            thread_.join();
+        }
+    }
 
 private:
-    std::string name;
-    std::optional<int> cpu;
-    std::thread thread;
+    template <typename T>
+    void run(T&& callback) noexcept {
+        try {
+            if (cpu_) {
+                if (!setThreadCore(*cpu_)) {
+                    logger_.warn("Could not set thread core of thread ", name_, ", core=", *cpu_);
+                }
+            }
+            if (!setThreadName(name_)) {
+                logger_.warn("Could not set name for thread ", name_);
+            }
+            callback(running_);
+        } catch (const std::exception& e) {
+            logger_.error("Unhandled std::exception in the thread ", name_);
+        } catch (...) {
+            logger_.error("Unhandled exception in the thread ", name_);
+        }
+        running_ = false;
+    }
+
+    const char* name_;
+    Logger& logger_;
+    std::optional<int> cpu_;
+    std::atomic<bool> running_{false};
+    std::thread thread_;
 };
 
 }  // namespace utils

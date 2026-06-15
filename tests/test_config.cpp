@@ -25,32 +25,6 @@
 }
 
 // ===================================================================
-//  parseLogLevel
-// ===================================================================
-
-TEST(ParseLogLevelTest, RecognisesAllValidLevels) {
-    EXPECT_EQ(parseLogLevel("debug"), utils::LogLevel::DEBUG);
-    EXPECT_EQ(parseLogLevel("info"), utils::LogLevel::INFO);
-    EXPECT_EQ(parseLogLevel("warn"), utils::LogLevel::WARN);
-    EXPECT_EQ(parseLogLevel("error"), utils::LogLevel::ERROR);
-}
-
-TEST(ParseLogLevelTest, CaseSensitive) {
-    // parseLogLevel uses exact string comparison — uppercase is NOT recognised
-    EXPECT_EQ(parseLogLevel("DEBUG"), std::nullopt);
-    EXPECT_EQ(parseLogLevel("Info"), std::nullopt);
-    EXPECT_EQ(parseLogLevel("WARN"), std::nullopt);
-    EXPECT_EQ(parseLogLevel("Error"), std::nullopt);
-}
-
-TEST(ParseLogLevelTest, UnknownValueReturnsNullopt) {
-    EXPECT_EQ(parseLogLevel("trace"), std::nullopt);
-    EXPECT_EQ(parseLogLevel(""), std::nullopt);
-    EXPECT_EQ(parseLogLevel("warning"), std::nullopt);
-    EXPECT_EQ(parseLogLevel("debugg"), std::nullopt);
-}
-
-// ===================================================================
 //  Logging section
 // ===================================================================
 
