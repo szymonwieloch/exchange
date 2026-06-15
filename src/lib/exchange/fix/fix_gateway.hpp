@@ -19,7 +19,6 @@
 // #include "fix_session.hpp"
 #include "lib/exchange/asset_translator.hpp"
 #include "lib/utils/log.h"
-#include "message_types.hpp"
 
 namespace exchange::fix {
 /// FIX Gateway — accepts TCP connections and manages FIX sessions.
