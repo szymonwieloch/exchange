@@ -4,10 +4,12 @@
 #include <string_view>
 #include <vector>
 
+#include "lib/exchange/asset_translator.hpp"
 #include "lib/exchange/book.h"
 #include "lib/exchange/constants.h"
 #include "lib/exchange/definitions.h"
 #include "lib/exchange/engine.h"
+#include "lib/exchange/fix/fix_gateway.hpp"
 #include "lib/exchange/md.h"
 #include "lib/exchange/metric_registry.h"
 #include "lib/exchange/request.h"
@@ -102,6 +104,30 @@ int main(int argc, char* argv[]) {
     auto response_queue = exchange::ResponseLFQueue(exchange::MAX_USER_UPDATES);
     auto md_queue = exchange::MDLFQueue(exchange::MAX_MARKET_UPDATES);
 
+    // ── FIX gateway ──────────────────────────────────────────────────
+    exchange::AssetTranslator asset_translator(config.engine.tickers);
+    // auto fix_request_queue = exchange::fix::FixRequestQueue(exchange::MAX_USER_UPDATES);
+    // std::unique_ptr<exchange::fix::FixGateway> fix_gateway;
+
+    if (config.fix.enabled) {
+        exchange::fix::FixGatewayConfig fix_cfg{
+            .enabled = config.fix.enabled,
+            .port = config.fix.port,
+            .bind_address = config.fix.bind_address,
+            .num_threads = config.fix.num_threads,
+            .sender_comp_id = config.fix.sender_comp_id,
+            .target_comp_id = config.fix.target_comp_id,
+            .heartbeat_interval = config.fix.heartbeat_interval,
+        };
+        // fix_gateway = std::make_unique<exchange::fix::FixGateway>(fix_cfg, asset_translator,
+        //                                                           fix_request_queue, logger);
+        // if (!fix_gateway->start()) {
+        //     logger.error("Failed to start FIX gateway");
+        // }
+    } else {
+        logger.info("FIX gateway disabled");
+    }
+
     // ── Instantiate the matching engine ────────────────────────────
     exchange::MatchingEngine engine(&request_queue, &response_queue, &md_queue, mreg, logger);
 
@@ -117,7 +143,11 @@ int main(int argc, char* argv[]) {
 
     std::cin.get();
 
-    // Graceful shutdown
+    // // Graceful shutdown
+    // if (fix_gateway) {
+    //     fix_gateway->stop();
+    //     logger.info("FIX gateway stopped.");
+    // }
     if (metrics_server) {
         metrics_server->stop();
         logger.info("Metrics server stopped.");

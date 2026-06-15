@@ -26,3 +26,19 @@ enabled = true
 port = 9090
 # Bind address (0.0.0.0 = all interfaces, 127.0.0.1 = localhost only).
 bind_address = "127.0.0.1"
+
+[fix]
+# Set to true to enable the FIX protocol gateway.
+enabled = true
+# TCP port for FIX client connections.
+port = 5001
+# Bind address (0.0.0.0 = all interfaces, 127.0.0.1 = localhost only).
+bind_address = "0.0.0.0"
+# Number of I/O threads for handling FIX sessions (0 = auto).
+num_threads = 2
+# Expected SenderCompID from connecting clients.
+sender_comp_id = "CLIENT"
+# Our TargetCompID (exchange identifier).
+target_comp_id = "EXCHANGE"
+# Heartbeat interval in seconds.
+heartbeat_interval = 30

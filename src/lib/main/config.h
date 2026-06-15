@@ -56,10 +56,22 @@ struct Config {
         std::string bind_address = "127.0.0.1";
     };
 
+    /// FIX protocol gateway configuration.
+    struct Fix {
+        bool enabled = false;
+        uint16_t port = 5001;
+        std::string bind_address = "0.0.0.0";
+        uint32_t num_threads = 0;  // 0 = auto (hardware concurrency)
+        std::string sender_comp_id = "CLIENT";
+        std::string target_comp_id = "EXCHANGE";
+        uint32_t heartbeat_interval = 30;
+    };
+
     Logging logging;
     Engine engine;
     Threading threading;
     Metrics metrics;
+    Fix fix;
 };
 
 // ── glaze metadata ──────────────────────────────────────────────────────
@@ -96,9 +108,18 @@ struct glz::meta<Config::Metrics> {
 };
 
 template <>
+struct glz::meta<Config::Fix> {
+    using T = Config::Fix;
+    static constexpr auto value =
+        glz::object(&T::enabled, &T::port, &T::bind_address, &T::num_threads,
+                    &T::sender_comp_id, &T::target_comp_id, &T::heartbeat_interval);
+};
+
+template <>
 struct glz::meta<Config> {
     using T = Config;
-    static constexpr auto value = glz::object(&T::logging, &T::engine, &T::threading, &T::metrics);
+    static constexpr auto value =
+        glz::object(&T::logging, &T::engine, &T::threading, &T::metrics, &T::fix);
 };
 
 // ── Parse helpers ───────────────────────────────────────────────────────
