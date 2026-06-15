@@ -3,7 +3,6 @@
 #include <cstdint>
 #include <expected>
 #include <fstream>
-#include <optional>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -45,8 +44,8 @@ struct Config {
 
     /// Thread-pinning configuration.
     struct Threading {
-        std::optional<int> engine_core;
-        std::optional<int> logger_core;
+        int engine_core = -1;  // -1 = no pinning
+        int logger_core = -1;
     };
 
     /// Prometheus metrics server configuration.
@@ -111,8 +110,8 @@ template <>
 struct glz::meta<Config::Fix> {
     using T = Config::Fix;
     static constexpr auto value =
-        glz::object(&T::enabled, &T::port, &T::bind_address, &T::num_threads,
-                    &T::sender_comp_id, &T::target_comp_id, &T::heartbeat_interval);
+        glz::object(&T::enabled, &T::port, &T::bind_address, &T::num_threads, &T::sender_comp_id,
+                    &T::target_comp_id, &T::heartbeat_interval);
 };
 
 template <>

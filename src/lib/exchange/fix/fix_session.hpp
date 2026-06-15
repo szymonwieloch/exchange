@@ -20,7 +20,6 @@
 #include "lib/exchange/asset_translator.hpp"
 #include "lib/exchange/request.h"
 #include "lib/utils/log.h"
-#include "lib/utils/queue.h"
 
 namespace exchange::fix {
 
@@ -44,10 +43,11 @@ enum class SessionState : uint8_t {
 class FixSession final : public std::enable_shared_from_this<FixSession> {
 public:
     FixSession(boost::asio::ip::tcp::socket socket, const AssetTranslator& translator,
-               const FixSessionConfig& config, utils::Logger& logger)
+               const FixSessionConfig& config, RequestLFQueue& request_queue, utils::Logger& logger)
         : socket_(std::move(socket)),
           translator_(translator),
           config_(config),
+          request_queue_(request_queue),
           logger_(logger),
           heartbeat_timer_(socket_.get_executor()) {}
 
@@ -73,6 +73,7 @@ private:
     boost::asio::ip::tcp::socket socket_;
     const AssetTranslator& translator_;
     const FixSessionConfig config_;
+    RequestLFQueue& request_queue_;
     utils::Logger& logger_;
 
     /// Timer for heartbeat / idle detection.

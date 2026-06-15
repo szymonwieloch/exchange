@@ -146,7 +146,8 @@ void FixGateway::onAccept(const boost::system::error_code& ec,
     FixSessionConfig ses_cfg{.sender_comp_id = config_.sender_comp_id,
                              .target_comp_id = config_.target_comp_id,
                              .heartbeat_interval = config_.heartbeat_interval};
-    auto session = std::make_shared<FixSession>(std::move(socket), translator_, ses_cfg, logger_);
+    auto session = std::make_shared<FixSession>(std::move(socket), translator_, ses_cfg,
+                                                request_queue_, logger_);
     session->start();
 
     // Continue accepting
