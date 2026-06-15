@@ -10,13 +10,14 @@ MatchingEngine::MatchingEngine(RequestLFQueue *client_requests, ResponseLFQueue 
       outgoing_ogw_responses(client_responses),
       outgoing_md_updates(market_updates),
       logger(logger),
+      engine_thread("MatchingEngine", logger),
       metrics(metrics),
       ticker_order_book(&logger, outgoing_ogw_responses, outgoing_md_updates, metrics) {
     logger.info("MatchingEngine constructed");
 }
 
 MatchingEngine::~MatchingEngine() {
-    is_running = false;
+    engine_thread.stop();
     logger.info("stopping MatchingEngine");
     using namespace std::literals::chrono_literals;
     std::this_thread::sleep_for(1s);
@@ -28,19 +29,17 @@ MatchingEngine::~MatchingEngine() {
 
 void MatchingEngine::start() {
     logger.info("MatchingEngine starting");
-    is_running = true;
-    // TODO
-    // ASSERT(
-    //     Common::createAndStartThread(-1, "Exchange/MatchingEngine", [this]() { run(); }) !=
-    //     nullptr, "Failed to start MatchingEngine thread.");
+    [[maybe_unused]] const bool started =
+        engine_thread.start([this](const std::atomic<bool> &is_running) { run(is_running); });
+    // TODO: handle start failure (already-running case)
 }
 
 void MatchingEngine::stop() {
     logger.info("MatchingEngine stopping");
-    is_running = false;
+    engine_thread.stop();
 }
 
-void MatchingEngine::run() noexcept {
+void MatchingEngine::run(const std::atomic<bool> &is_running) noexcept {
     logger.info("starting MatchingEngine");
     while (is_running) {
         const auto req = incoming_requests->getNextToRead();
