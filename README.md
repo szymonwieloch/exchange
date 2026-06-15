@@ -34,7 +34,7 @@ Ultra low-latency limit order book matching engine written in C++23. Designed fo
 ```
 
 - **Single-threaded matching engine** — no locks, no atomics in the hot path; deterministic ordering
-- **Two-level order lookup**: hash by `UserId` → direct array by `OrderId` (O(1) amortized)
+- **Two-level order lookup**: hash by `UserId` → direct array by `OrderId` (O(1) amortizþed)
 - **Dual-chain price levels**: hash-collision chain for O(1) lookup + price-sorted chain for O(1) best bid/ask
 - **Intrusive doubly-linked lists** — orders form circular rings at each price level; no separate heap allocations
 
@@ -61,8 +61,7 @@ Ultra low-latency limit order book matching engine written in C++23. Designed fo
 | Library | Version | Purpose |
 |---|---|---|
 | type_safe | 0.2.4 | Zero-overhead strong typedefs |
-| toml++ | 3.4.0 | TOML configuration parsing |
-| reflect-cpp | — | Reflection-based TOML deserialization |
+| glaze | 7.8.1 | TOML configuration parsing (header-only) |
 | Boost.Asio + Beast | — | HTTP metrics server |
 | Boost.ProgramOptions | — | CLI argument parsing |
 | GoogleTest | 1.15.2 | Unit testing framework |

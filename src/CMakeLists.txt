@@ -11,5 +11,5 @@ target_include_directories(exchange_lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
-target_link_libraries(exchange_lib PUBLIC type_safe tomlplusplus::tomlplusplus)
+target_link_libraries(exchange_lib PUBLIC type_safe glaze::glaze)
 target_link_libraries(exchange PRIVATE exchange_lib Boost::program_options Threads::Threads)

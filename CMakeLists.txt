@@ -90,12 +90,12 @@ FetchContent_Declare(
 set(TYPE_SAFE_FETCH_MISSING_DEPENDENCIES OFF CACHE BOOL "")
 FetchContent_MakeAvailable(type_safe)
 
-# toml++ — header-only TOML configuration parser
+# glaze — header-only C++ serialization library with TOML support
 FetchContent_Declare(
-    tomlplusplus
-    URL https://github.com/marzer/tomlplusplus/archive/refs/tags/v3.4.0.tar.gz
+    glaze
+    URL https://github.com/stephenberry/glaze/archive/refs/tags/v7.8.1.tar.gz
 )
-FetchContent_MakeAvailable(tomlplusplus)
+FetchContent_MakeAvailable(glaze)
 
 # Boost.ProgramOptions for command-line argument parsing
 find_package(Boost REQUIRED COMPONENTS program_options)

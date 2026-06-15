@@ -4,7 +4,25 @@
 #include <string>
 #include <vector>
 
+#include "glaze/toml.hpp"
 #include "lib/main/config.h"
+
+// ── Helper: parse a TOML string into a Config ──────────────────────────
+
+[[nodiscard]] static std::expected<Config, std::string> parseConfigString(
+    const std::string& toml_str) noexcept {
+    Config config;
+    // An empty input is valid TOML — just return defaults.
+    if (toml_str.empty()) {
+        return config;
+    }
+    auto err =
+        glz::read<glz::opts{.format = glz::TOML, .error_on_unknown_keys = true}>(config, toml_str);
+    if (err) {
+        return std::unexpected(glz::format_error(err, toml_str));
+    }
+    return config;
+}
 
 // ===================================================================
 //  parseLogLevel
@@ -33,194 +51,222 @@ TEST(ParseLogLevelTest, UnknownValueReturnsNullopt) {
 }
 
 // ===================================================================
-//  parseLogging
+//  Logging section
 // ===================================================================
 
-TEST(ParseLoggingTest, DefaultsWhenSectionMissing) {
-    const auto tbl = toml::parse("");
-    auto result = parseLogging(tbl);
+TEST(LoggingTest, DefaultsWhenSectionMissing) {
+    auto result = parseConfigString("");
     ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(result->level, utils::LogLevel::INFO);
-    EXPECT_EQ(result->file, "exchange.log");
+    EXPECT_EQ(result->logging.level, utils::LogLevel::INFO);
+    EXPECT_EQ(result->logging.file, "exchange.log");
 }
 
-TEST(ParseLoggingTest, ParsesLevelAndFile) {
-    const auto tbl = toml::parse(R"(
+TEST(LoggingTest, ParsesLevelAndFile) {
+    auto result = parseConfigString(R"(
         [logging]
         level = "debug"
         file  = "/tmp/test.log"
     )");
-    auto result = parseLogging(tbl);
     ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(result->level, utils::LogLevel::DEBUG);
-    EXPECT_EQ(result->file, "/tmp/test.log");
+    EXPECT_EQ(result->logging.level, utils::LogLevel::DEBUG);
+    EXPECT_EQ(result->logging.file, "/tmp/test.log");
 }
 
-TEST(ParseLoggingTest, ParsesPartialSettings) {
-    const auto tbl = toml::parse(R"(
+TEST(LoggingTest, ParsesPartialSettings) {
+    auto result = parseConfigString(R"(
         [logging]
         level = "warn"
     )");
-    auto result = parseLogging(tbl);
     ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(result->level, utils::LogLevel::WARN);
-    EXPECT_EQ(result->file, "exchange.log");  // default preserved
+    EXPECT_EQ(result->logging.level, utils::LogLevel::WARN);
+    EXPECT_EQ(result->logging.file, "exchange.log");  // default preserved
 }
 
-TEST(ParseLoggingTest, ParsesOnlyFile) {
-    const auto tbl = toml::parse(R"(
+TEST(LoggingTest, ParsesOnlyFile) {
+    auto result = parseConfigString(R"(
         [logging]
         file = "custom.log"
     )");
-    auto result = parseLogging(tbl);
     ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(result->level, utils::LogLevel::INFO);  // default preserved
-    EXPECT_EQ(result->file, "custom.log");
+    EXPECT_EQ(result->logging.level, utils::LogLevel::INFO);  // default preserved
+    EXPECT_EQ(result->logging.file, "custom.log");
 }
 
-TEST(ParseLoggingTest, ErrorOnUnknownLevel) {
-    const auto tbl = toml::parse(R"(
+TEST(LoggingTest, ErrorOnUnknownLevel) {
+    auto result = parseConfigString(R"(
         [logging]
         level = "trace"
     )");
-    auto result = parseLogging(tbl);
     ASSERT_FALSE(result.has_value());
-    EXPECT_NE(result.error().find("Unknown log level"), std::string::npos);
+    // Error message should mention the enum parse failure
     EXPECT_NE(result.error().find("trace"), std::string::npos);
 }
 
-TEST(ParseLoggingTest, ErrorOnUnknownKey) {
-    const auto tbl = toml::parse(R"(
+TEST(LoggingTest, ErrorOnUnknownKey) {
+    auto result = parseConfigString(R"(
         [logging]
         level = "info"
         colour = "blue"
     )");
-    auto result = parseLogging(tbl);
     ASSERT_FALSE(result.has_value());
-    EXPECT_NE(result.error().find("Unknown key"), std::string::npos);
+    // Error message should mention the unknown key
     EXPECT_NE(result.error().find("colour"), std::string::npos);
 }
 
 // ===================================================================
-//  parseEngine
+//  Engine section
 // ===================================================================
 
-TEST(ParseEngineTest, DefaultsWhenSectionMissing) {
-    const auto tbl = toml::parse("");
-    auto result = parseEngine(tbl);
+TEST(EngineTest, DefaultsWhenSectionMissing) {
+    auto result = parseConfigString("");
     ASSERT_TRUE(result.has_value());
-    EXPECT_TRUE(result->tickers.empty());
+    EXPECT_TRUE(result->engine.tickers.empty());
 }
 
-TEST(ParseEngineTest, ParsesTickersList) {
-    const auto tbl = toml::parse(R"(
+TEST(EngineTest, ParsesTickersList) {
+    auto result = parseConfigString(R"(
         [engine]
         tickers = ["AAPL", "GOOG", "MSFT"]
     )");
-    auto result = parseEngine(tbl);
     ASSERT_TRUE(result.has_value());
     const std::vector<std::string> expected = {"AAPL", "GOOG", "MSFT"};
-    EXPECT_EQ(result->tickers, expected);
+    EXPECT_EQ(result->engine.tickers, expected);
 }
 
-TEST(ParseEngineTest, EmptyTickersList) {
-    const auto tbl = toml::parse(R"(
+TEST(EngineTest, EmptyTickersList) {
+    auto result = parseConfigString(R"(
         [engine]
         tickers = []
     )");
-    auto result = parseEngine(tbl);
     ASSERT_TRUE(result.has_value());
-    EXPECT_TRUE(result->tickers.empty());
+    EXPECT_TRUE(result->engine.tickers.empty());
 }
 
-TEST(ParseEngineTest, SingleTicker) {
-    const auto tbl = toml::parse(R"(
+TEST(EngineTest, SingleTicker) {
+    auto result = parseConfigString(R"(
         [engine]
         tickers = ["ONLY"]
     )");
-    auto result = parseEngine(tbl);
     ASSERT_TRUE(result.has_value());
-    ASSERT_EQ(result->tickers.size(), 1u);
-    EXPECT_EQ(result->tickers[0], "ONLY");
+    ASSERT_EQ(result->engine.tickers.size(), 1u);
+    EXPECT_EQ(result->engine.tickers[0], "ONLY");
 }
 
-TEST(ParseEngineTest, ErrorOnUnknownKey) {
-    const auto tbl = toml::parse(R"(
+TEST(EngineTest, ErrorOnUnknownKey) {
+    auto result = parseConfigString(R"(
         [engine]
         tickers = ["AAPL"]
         max_orders = 1000
     )");
-    auto result = parseEngine(tbl);
     ASSERT_FALSE(result.has_value());
-    EXPECT_NE(result.error().find("Unknown key"), std::string::npos);
     EXPECT_NE(result.error().find("max_orders"), std::string::npos);
 }
 
 // ===================================================================
-//  parseThreading
+//  Threading section
 // ===================================================================
 
-TEST(ParseThreadingTest, DefaultsWhenSectionMissing) {
-    const auto tbl = toml::parse("");
-    auto result = parseThreading(tbl);
+TEST(ThreadingTest, DefaultsWhenSectionMissing) {
+    auto result = parseConfigString("");
     ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(result->engine_core, -1);
-    EXPECT_EQ(result->logger_core, -1);
+    EXPECT_EQ(result->threading.engine_core, -1);
+    EXPECT_EQ(result->threading.logger_core, -1);
 }
 
-TEST(ParseThreadingTest, ParsesBothCores) {
-    const auto tbl = toml::parse(R"(
+TEST(ThreadingTest, ParsesBothCores) {
+    auto result = parseConfigString(R"(
         [threading]
         engine_core = 2
         logger_core = 3
     )");
-    auto result = parseThreading(tbl);
     ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(result->engine_core, 2);
-    EXPECT_EQ(result->logger_core, 3);
+    EXPECT_EQ(result->threading.engine_core, 2);
+    EXPECT_EQ(result->threading.logger_core, 3);
 }
 
-TEST(ParseThreadingTest, ParsesPartialSettings) {
-    const auto tbl = toml::parse(R"(
+TEST(ThreadingTest, ParsesPartialSettings) {
+    auto result = parseConfigString(R"(
         [threading]
         engine_core = 0
     )");
-    auto result = parseThreading(tbl);
     ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(result->engine_core, 0);
-    EXPECT_EQ(result->logger_core, -1);  // default preserved
+    EXPECT_EQ(result->threading.engine_core, 0);
+    EXPECT_EQ(result->threading.logger_core, -1);  // default preserved
 }
 
-TEST(ParseThreadingTest, NegativeCoreValues) {
-    const auto tbl = toml::parse(R"(
+TEST(ThreadingTest, NegativeCoreValues) {
+    auto result = parseConfigString(R"(
         [threading]
         engine_core = -1
         logger_core = -2
     )");
-    auto result = parseThreading(tbl);
     ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(result->engine_core, -1);
-    EXPECT_EQ(result->logger_core, -2);
+    EXPECT_EQ(result->threading.engine_core, -1);
+    EXPECT_EQ(result->threading.logger_core, -2);
 }
 
-TEST(ParseThreadingTest, ErrorOnUnknownKey) {
-    const auto tbl = toml::parse(R"(
+TEST(ThreadingTest, ErrorOnUnknownKey) {
+    auto result = parseConfigString(R"(
         [threading]
         engine_core = 0
         priority = "high"
     )");
-    auto result = parseThreading(tbl);
     ASSERT_FALSE(result.has_value());
-    EXPECT_NE(result.error().find("Unknown key"), std::string::npos);
     EXPECT_NE(result.error().find("priority"), std::string::npos);
 }
 
 // ===================================================================
-//  parseConfig – full integration
+//  Metrics section
+// ===================================================================
+
+TEST(MetricsTest, DefaultsWhenSectionMissing) {
+    auto result = parseConfigString("");
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->metrics.enabled, false);
+    EXPECT_EQ(result->metrics.port, 9090);
+    EXPECT_EQ(result->metrics.bind_address, "127.0.0.1");
+}
+
+TEST(MetricsTest, ParsesFullSettings) {
+    auto result = parseConfigString(R"(
+        [metrics]
+        enabled = true
+        port = 8080
+        bind_address = "0.0.0.0"
+    )");
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->metrics.enabled, true);
+    EXPECT_EQ(result->metrics.port, 8080);
+    EXPECT_EQ(result->metrics.bind_address, "0.0.0.0");
+}
+
+TEST(MetricsTest, ParsesPartialSettings) {
+    auto result = parseConfigString(R"(
+        [metrics]
+        enabled = true
+    )");
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->metrics.enabled, true);
+    EXPECT_EQ(result->metrics.port, 9090);                 // default preserved
+    EXPECT_EQ(result->metrics.bind_address, "127.0.0.1");  // default preserved
+}
+
+TEST(MetricsTest, ErrorOnUnknownKey) {
+    auto result = parseConfigString(R"(
+        [metrics]
+        enabled = true
+        path = "/stats"
+    )");
+    ASSERT_FALSE(result.has_value());
+    EXPECT_NE(result.error().find("path"), std::string::npos);
+}
+
+// ===================================================================
+//  Full config integration
 // ===================================================================
 
 TEST(ParseConfigTest, ParsesCompleteValidConfig) {
-    const auto tbl = toml::parse(R"(
+    auto result = parseConfigString(R"(
         [logging]
         level = "warn"
         file  = "/var/log/exchange.log"
@@ -232,64 +278,45 @@ TEST(ParseConfigTest, ParsesCompleteValidConfig) {
         engine_core = 0
         logger_core = 1
     )");
-
-    auto logging = parseLogging(tbl);
-    ASSERT_TRUE(logging.has_value());
-    EXPECT_EQ(logging->level, utils::LogLevel::WARN);
-    EXPECT_EQ(logging->file, "/var/log/exchange.log");
-
-    auto engine = parseEngine(tbl);
-    ASSERT_TRUE(engine.has_value());
-    const std::vector<std::string> expected = {"AAPL", "GOOG"};
-    EXPECT_EQ(engine->tickers, expected);
-
-    auto threading = parseThreading(tbl);
-    ASSERT_TRUE(threading.has_value());
-    EXPECT_EQ(threading->engine_core, 0);
-    EXPECT_EQ(threading->logger_core, 1);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->logging.level, utils::LogLevel::WARN);
+    EXPECT_EQ(result->logging.file, "/var/log/exchange.log");
+    EXPECT_EQ(result->engine.tickers, (std::vector<std::string>{"AAPL", "GOOG"}));
+    EXPECT_EQ(result->threading.engine_core, 0);
+    EXPECT_EQ(result->threading.logger_core, 1);
 }
 
 TEST(ParseConfigTest, AllDefaultsWithEmptyConfig) {
-    const auto tbl = toml::parse("");
-
-    auto logging = parseLogging(tbl);
-    ASSERT_TRUE(logging.has_value());
-    EXPECT_EQ(logging->level, utils::LogLevel::INFO);
-    EXPECT_EQ(logging->file, "exchange.log");
-
-    auto engine = parseEngine(tbl);
-    ASSERT_TRUE(engine.has_value());
-    EXPECT_TRUE(engine->tickers.empty());
-
-    auto threading = parseThreading(tbl);
-    ASSERT_TRUE(threading.has_value());
-    EXPECT_EQ(threading->engine_core, -1);
-    EXPECT_EQ(threading->logger_core, -1);
+    auto result = parseConfigString("");
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->logging.level, utils::LogLevel::INFO);
+    EXPECT_EQ(result->logging.file, "exchange.log");
+    EXPECT_TRUE(result->engine.tickers.empty());
+    EXPECT_EQ(result->threading.engine_core, -1);
+    EXPECT_EQ(result->threading.logger_core, -1);
+    EXPECT_EQ(result->metrics.enabled, false);
+    EXPECT_EQ(result->metrics.port, 9090);
 }
 
 TEST(ParseConfigTest, ErrorOnBadLogLevel) {
-    const auto tbl = toml::parse(R"(
+    auto result = parseConfigString(R"(
         [logging]
         level = "verbose"
     )");
-    auto logging = parseLogging(tbl);
-    ASSERT_FALSE(logging.has_value());
+    ASSERT_FALSE(result.has_value());
 }
 
 TEST(ParseConfigTest, CaseSensitiveLogLevel) {
-    // Uppercase "ERROR" is not a recognised level — parseLogLevel is case-sensitive
-    const auto tbl = toml::parse(R"(
+    // Uppercase "ERROR" is not a recognised enum value (case-sensitive)
+    auto result = parseConfigString(R"(
         [logging]
         level = "ERROR"
     )");
-    auto logging = parseLogging(tbl);
-    ASSERT_FALSE(logging.has_value());
-    EXPECT_NE(logging.error().find("Unknown log level"), std::string::npos);
+    ASSERT_FALSE(result.has_value());
 }
 
 TEST(ParseConfigTest, ErrorOnUnknownKeyInAnySection) {
-    // Unknown key in [engine] should fail the full parseConfig pipeline
-    const auto tbl = toml::parse(R"(
+    auto result = parseConfigString(R"(
         [logging]
         level = "info"
 
@@ -300,8 +327,35 @@ TEST(ParseConfigTest, ErrorOnUnknownKeyInAnySection) {
         [threading]
         engine_core = 0
     )");
-    auto engine = parseEngine(tbl);
-    ASSERT_FALSE(engine.has_value());
-    EXPECT_NE(engine.error().find("Unknown key"), std::string::npos);
-    EXPECT_NE(engine.error().find("garbage"), std::string::npos);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_NE(result.error().find("garbage"), std::string::npos);
+}
+
+TEST(ParseConfigTest, AllSectionsTogether) {
+    auto result = parseConfigString(R"(
+        [logging]
+        level = "error"
+        file  = "prod.log"
+
+        [engine]
+        tickers = ["BTC", "ETH", "SOL"]
+
+        [threading]
+        engine_core = 3
+        logger_core = 4
+
+        [metrics]
+        enabled = true
+        port = 9999
+        bind_address = "10.0.0.1"
+    )");
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->logging.level, utils::LogLevel::ERROR);
+    EXPECT_EQ(result->logging.file, "prod.log");
+    EXPECT_EQ(result->engine.tickers, (std::vector<std::string>{"BTC", "ETH", "SOL"}));
+    EXPECT_EQ(result->threading.engine_core, 3);
+    EXPECT_EQ(result->threading.logger_core, 4);
+    EXPECT_EQ(result->metrics.enabled, true);
+    EXPECT_EQ(result->metrics.port, 9999);
+    EXPECT_EQ(result->metrics.bind_address, "10.0.0.1");
 }

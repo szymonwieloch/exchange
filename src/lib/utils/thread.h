@@ -21,4 +21,15 @@ namespace utils {
     return (pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset) == 0);
 }
 
+class Thread {
+public:
+    Thread() = delete;
+    Thread(std::string name, std::optional<int> cpu) : name(name), cpu(cpu) {}
+
+private:
+    std::string name;
+    std::optional<int> cpu;
+    std::thread thread;
+};
+
 }  // namespace utils
