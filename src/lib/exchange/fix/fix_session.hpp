@@ -30,6 +30,7 @@
 
 #include "lib/exchange/asset_translator.hpp"
 #include "lib/exchange/request.h"
+#include "lib/utils/buffer.h"
 #include "lib/utils/log.h"
 
 namespace exchange::fix {
@@ -162,8 +163,7 @@ private:
 
     /// Read buffer: stack-allocated, no heap in hot path.
     static constexpr size_t kReadBufferSize = 4096;
-    std::array<char, kReadBufferSize> read_buffer_{};
-    size_t read_buffer_pos_{0};
+    utils::Buffer<kReadBufferSize> read_buffer_;
 
     /// Pending write data.
     std::string pending_write_;

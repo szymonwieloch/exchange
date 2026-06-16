@@ -15,6 +15,7 @@ FetchContent_MakeAvailable(googletest)
 # Test executable
 add_executable(exchange_tests
     test_book.cpp
+    test_buffer.cpp
     test_config.cpp
     test_log.cpp
     test_mempool.cpp

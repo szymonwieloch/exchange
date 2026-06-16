@@ -176,8 +176,7 @@ void FixSession::start() {
 void FixSession::doRead() {
     auto self = shared_from_this();
     socket_.async_read_some(
-        boost::asio::buffer(read_buffer_.data() + read_buffer_pos_,
-                            read_buffer_.size() - read_buffer_pos_),
+        boost::asio::buffer(read_buffer_.writeBuf(), read_buffer_.writeSize()),
         [this, self](const boost::system::error_code& ec, size_t bytes_transferred) {
             onRead(ec, bytes_transferred);
         });
@@ -192,15 +191,10 @@ void FixSession::onRead(const boost::system::error_code& ec, size_t bytes_transf
         }
         return;
     }
-    const size_t total_bytes = read_buffer_pos_ + bytes_transferred;
+    read_buffer_.extend(bytes_transferred);
+    const size_t total_bytes = read_buffer_.size();
     const size_t consumed = processBuffer(total_bytes);
-    if (consumed < total_bytes) {
-        const size_t remaining = total_bytes - consumed;
-        std::memmove(read_buffer_.data(), read_buffer_.data() + consumed, remaining);
-        read_buffer_pos_ = remaining;
-    } else {
-        read_buffer_pos_ = 0;
-    }
+    read_buffer_.consume(consumed);
     doRead();
 }
 
