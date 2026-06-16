@@ -58,10 +58,11 @@ enum class SessionState : uint8_t {
 /// keeps itself alive while async operations are pending.
 class FixSession final : public std::enable_shared_from_this<FixSession> {
 public:
-    FixSession(boost::asio::ip::tcp::socket socket, const AssetTranslator& translator,
+    FixSession(SessionId id, boost::asio::ip::tcp::socket socket, const AssetTranslator& translator,
                const FixSessionConfig& config, RequestLFQueue& request_queue, utils::Logger& logger,
                UserManager& user_mgr)
-        : socket_(std::move(socket)),
+        : id_(id),
+          socket_(std::move(socket)),
           translator_(translator),
           config_(config),
           request_queue_(request_queue),
@@ -160,6 +161,7 @@ private:
     /// Builds a standard header with the current outgoing sequence number.
     [[nodiscard]] Fixpp::v42::Header buildHeader() const;
 
+    SessionId id_ = SessionId::INVALID;
     boost::asio::ip::tcp::socket socket_;
     const AssetTranslator& translator_;
     const FixSessionConfig config_;

@@ -85,6 +85,20 @@ struct Cost : type_safe::strong_typedef<Cost, std::uint64_t>,
     using strong_typedef::strong_typedef;
 };
 
+struct SessionId : type_safe::strong_typedef<SessionId, std::uint32_t>,
+                   type_safe::strong_typedef_op::equality_comparison<SessionId>,
+                   type_safe::strong_typedef_op::relational_comparison<SessionId> {
+    using strong_typedef::strong_typedef;
+    static const SessionId INVALID;
+};
+
+inline constexpr SessionId SessionId::INVALID{std::numeric_limits<std::uint32_t>::max()};
+
 enum class Side : int8_t { INVALID = 0, BUY = 1, SELL = -1 };
 
 }  // namespace exchange
+
+namespace std {
+template <>
+struct hash<exchange::SessionId> : type_safe::hashable<exchange::SessionId> {};
+}  // namespace std

@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "config.h"
+#include "sessions.hpp"
 // #include "fix_session.hpp"
 #include "lib/exchange/asset_translator.hpp"
 #include "lib/exchange/request.h"
@@ -67,7 +68,6 @@ private:
 
     /// Handles a newly accepted connection.
     void onAccept(const boost::system::error_code& ec, boost::asio::ip::tcp::socket socket);
-
     /// Work guard to keep io_context alive between async ops.
     using WorkGuard = boost::asio::executor_work_guard<boost::asio::io_context::executor_type>;
 
@@ -84,6 +84,8 @@ private:
 
     std::atomic<bool> running_{false};
     std::vector<std::thread> thread_pool_;
+
+    FixSessions sessions_;
 };
 
 }  // namespace exchange::fix

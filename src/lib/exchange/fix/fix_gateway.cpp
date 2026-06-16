@@ -20,7 +20,11 @@ FixGateway::FixGateway(const FixGatewayConfig& config, const AssetTranslator& tr
       response_queue_(response_queue),
       user_mgr_(user_mgr),
       work_guard_(boost::asio::make_work_guard(io_context_)),
-      acceptor_(io_context_) {}
+      acceptor_(io_context_),
+      sessions_(logger, translator, request_queue, user_mgr,
+                FixSessionConfig{.sender_comp_id = config.sender_comp_id,
+                                 .target_comp_id = config.target_comp_id,
+                                 .heartbeat_interval = config.heartbeat_interval}) {}
 
 FixGateway::~FixGateway() {
     stop();
@@ -146,11 +150,7 @@ void FixGateway::onAccept(const boost::system::error_code& ec,
                  socket.remote_endpoint().port());
 
     // // Create and start a new FixSession
-    FixSessionConfig ses_cfg{.sender_comp_id = config_.sender_comp_id,
-                             .target_comp_id = config_.target_comp_id,
-                             .heartbeat_interval = config_.heartbeat_interval};
-    auto session = std::make_shared<FixSession>(std::move(socket), translator_, ses_cfg,
-                                                request_queue_, logger_, user_mgr_);
+    auto session = sessions_.create(std::move(socket));
     session->start();
 
     // Continue accepting
