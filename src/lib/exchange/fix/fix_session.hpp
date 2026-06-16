@@ -133,7 +133,7 @@ private:
     // --- Message processing ---
     /// Processes accumulated bytes in the read buffer, extracting complete FIX
     /// messages delimited by SOH.  Returns the number of bytes consumed.
-    size_t processBuffer(size_t total_bytes);
+    size_t processBuffer();
 
     /// Dispatches a single parsed FIX message frame to the appropriate handler.
     /// On parse failure, sends a session-level Reject (MsgType=3).

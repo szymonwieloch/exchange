@@ -17,6 +17,7 @@ add_executable(exchange_tests
     test_book.cpp
     test_buffer.cpp
     test_config.cpp
+    test_fix_helpers.cpp
     test_log.cpp
     test_mempool.cpp
     test_metrics.cpp

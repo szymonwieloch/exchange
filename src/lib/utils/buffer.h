@@ -33,6 +33,14 @@ public:
     /// Pointer to the start of readable data. Valid for [0, size()).
     [[nodiscard]] const char* data() const noexcept { return read_buffer_.data(); }
 
+    /// Pointer to the start of readable data. Valid for [0, size()).
+    [[nodiscard]] const char* begin() const noexcept { return read_buffer_.data(); }
+
+    /// Pointer to the start of readable data. Valid for [0, size()).
+    [[nodiscard]] const char* end() const noexcept {
+        return read_buffer_.data() + read_buffer_pos_;
+    }
+
     /// Pointer to the first writable byte. Caller may write up to writeSize() bytes,
     /// then call extend(n) to commit.
     [[nodiscard]] char* writeBuf() noexcept { return read_buffer_.data() + read_buffer_pos_; }

@@ -14,33 +14,12 @@
 #include <ctime>
 
 #include "lib/exchange/definitions.h"
+#include "lib/exchange/fix/fix_helpers.hpp"
 #include "lib/utils/log.h"
 
 namespace exchange::fix {
 
 namespace {
-
-[[nodiscard]] constexpr Side toInternalSide(char c) noexcept {
-    switch (c) {
-        case '1':
-            return Side::BUY;
-        case '2':
-            return Side::SELL;
-        default:
-            return Side::INVALID;
-    }
-}
-
-[[nodiscard]] constexpr RequestType toRequestType(char c) noexcept {
-    switch (c) {
-        case '1':
-            return RequestType::NEW;
-        case '2':
-            return RequestType::NEW;
-        default:
-            return RequestType::INVALID;
-    }
-}
 
 struct SessionVisitor : public Fixpp::StaticVisitor<void> {
     FixSession& session;
@@ -135,20 +114,6 @@ struct SessionVisitRules : public Fixpp::VisitRules {
     return {tt, {}, static_cast<int>(us.count())};
 }
 
-[[nodiscard]] const char* findBytes(const char* haystack, size_t haystack_len, const char* needle,
-                                    size_t needle_len) noexcept {
-    if (needle_len == 0)
-        return haystack;
-    if (haystack_len < needle_len)
-        return nullptr;
-    const char* const end = haystack + haystack_len - needle_len;
-    for (const char* p = haystack; p <= end; ++p) {
-        if (std::memcmp(p, needle, needle_len) == 0)
-            return p;
-    }
-    return nullptr;
-}
-
 template <typename Message>
 void serializeAndSend(const Fixpp::v42::Header& header, const Message& msg, uint64_t& seq_num,
                       std::string& pending_out) {
@@ -192,21 +157,23 @@ void FixSession::onRead(const boost::system::error_code& ec, size_t bytes_transf
         return;
     }
     read_buffer_.extend(bytes_transferred);
-    const size_t total_bytes = read_buffer_.size();
-    const size_t consumed = processBuffer(total_bytes);
+    const size_t consumed = processBuffer();
     read_buffer_.consume(consumed);
     doRead();
 }
 
-size_t FixSession::processBuffer(size_t total_bytes) {
+size_t FixSession::processBuffer() {
+    auto total_bytes = read_buffer_.size();
     const char* data = read_buffer_.data();
     size_t consumed = 0;
+    auto end = read_buffer_.end();
     while (consumed < total_bytes) {
         const char* start = data + consumed;
-        const char* const end = data + total_bytes;
-        const char* cs = findBytes(start, static_cast<size_t>(end - start), "10=", 3);
-        if (cs == nullptr)
+        std::string_view segment(start, static_cast<size_t>(end - start));
+        auto cs_pos = segment.find("10=");
+        if (cs_pos == std::string_view::npos)
             break;
+        const char* cs = start + cs_pos;
         const char* soh = static_cast<const char*>(
             std::memchr(cs + 3, Fixpp::SOH, static_cast<size_t>(end - (cs + 3))));
         if (soh == nullptr)
@@ -246,10 +213,11 @@ void FixSession::dispatchMessage(const char* frame, size_t size) {
 }
 
 std::string_view FixSession::extractTag(const char* frame, size_t size, std::string_view tag) {
-    const char* pos = findBytes(frame, size, tag.data(), tag.size());
-    if (pos == nullptr)
+    std::string_view sv(frame, size);
+    auto pos = sv.find(tag);
+    if (pos == std::string_view::npos)
         return {};
-    const char* val_start = pos + tag.size();
+    const char* val_start = frame + pos + tag.size();
     const char* soh = static_cast<const char*>(
         std::memchr(val_start, Fixpp::SOH, size - static_cast<size_t>(val_start - frame)));
     if (soh == nullptr)
@@ -316,59 +284,7 @@ void FixSession::onNewOrderSingle(const Fixpp::v42::Message::NewOrderSingle::Ref
         return;
     }
 
-    // --- Validate required fields ---
-
-    std::string symbol;
-    if (!Fixpp::tryGet<Fixpp::Tag::Symbol>(order, symbol)) {
-        logger_.warn("FIX NewOrderSingle missing Symbol");
-        sendBusinessReject("D", 5, "Required tag missing: Symbol (55)");
-        return;
-    }
-    const TickerId ticker = translator_.resolve(symbol);
-    if (ticker == TickerId::INVALID) {
-        logger_.warn("FIX NewOrderSingle unknown symbol: ", utils::ShortString(symbol));
-        // BusinessRejectReason 2 = Unknown Security
-        sendBusinessReject("D", 2, "Unknown symbol");
-        return;
-    }
-
-    char side_char = 0;
-    if (!Fixpp::tryGet<Fixpp::Tag::Side>(order, side_char)) {
-        logger_.warn("FIX NewOrderSingle missing Side");
-        sendBusinessReject("D", 5, "Required tag missing: Side (54)");
-        return;
-    }
-    const Side side = toInternalSide(side_char);
-    if (side == Side::INVALID) {
-        logger_.warn("FIX NewOrderSingle invalid Side: ", side_char);
-        sendBusinessReject("D", 0, "Invalid Side value");
-        return;
-    }
-
-    char ord_type = 0;
-    if (!Fixpp::tryGet<Fixpp::Tag::OrdType>(order, ord_type)) {
-        logger_.warn("FIX NewOrderSingle missing OrdType");
-        sendBusinessReject("D", 5, "Required tag missing: OrdType (40)");
-        return;
-    }
-    const RequestType req_type = toRequestType(ord_type);
-    if (req_type == RequestType::INVALID) {
-        logger_.warn("FIX NewOrderSingle unsupported OrdType: ", ord_type);
-        sendBusinessReject("D", 3, "Unsupported OrderType");
-        return;
-    }
-
-    double price_val = 0.0;
-    const bool has_price = Fixpp::tryGet<Fixpp::Tag::Price>(order, price_val);
-
-    double qty_val = 0.0;
-    if (!Fixpp::tryGet<Fixpp::Tag::OrderQty>(order, qty_val)) {
-        logger_.warn("FIX NewOrderSingle missing OrderQty");
-        sendBusinessReject("D", 5, "Required tag missing: OrderQty (38)");
-        return;
-    }
-
-    // --- Build request ---
+    // --- Resolve user ---
 
     std::string cl_ord_id;
     Fixpp::tryGet<Fixpp::Tag::ClOrdID>(order, cl_ord_id);
@@ -381,15 +297,19 @@ void FixSession::onNewOrderSingle(const Fixpp::v42::Message::NewOrderSingle::Ref
         user_id = UserId{hash % 1024 + 1};
     }
 
-    Request req{
-        .type = req_type,
-        .user_id = user_id,
-        .ticker_id = ticker,
-        .order_id = OrderId::INVALID,
-        .side = side,
-        .price = has_price ? Price{static_cast<uint64_t>(price_val * 100)} : Price::INVALID,
-        .qty = Quantity{static_cast<uint32_t>(qty_val)},
-    };
+    // --- Parse and validate ---
+
+    auto result = details::parseNewOrderSingle(order, user_id, translator_);
+    if (!result.has_value()) {
+        logger_.warn("FIX NewOrderSingle: ", result.error());
+        // Determine BusinessRejectReason: 5 = Required tag missing, 0 = Other
+        const bool is_missing = (std::string_view{result.error()}.find("Required tag missing") !=
+                                 std::string_view::npos);
+        sendBusinessReject("D", is_missing ? 5 : 0, result.error());
+        return;
+    }
+
+    // --- Enqueue request ---
 
     const size_t idx = request_queue_.reserve(1);
     if (idx == static_cast<size_t>(-1)) {
@@ -398,11 +318,13 @@ void FixSession::onNewOrderSingle(const Fixpp::v42::Message::NewOrderSingle::Ref
         sendBusinessReject("D", 4, "System busy, please retry");
         return;
     }
+    const Request& req = *result;
     *request_queue_.slot(idx) = req;
     request_queue_.commit(idx, 1);
 
-    logger_.debug("FIX NewOrderSingle: ticker=", static_cast<int>(type_safe::get(ticker)),
-                  " side=", static_cast<int>(side), " qty=", qty_val, " price=", price_val);
+    logger_.debug("FIX NewOrderSingle: ticker=", static_cast<int>(type_safe::get(req.ticker_id)),
+                  " side=", static_cast<int>(req.side), " qty=", type_safe::get(req.qty),
+                  " price=", type_safe::get(req.price));
 }
 
 void FixSession::onOrderCancelRequest(const Fixpp::v42::Message::OrderCancelRequest::Ref& cancel) {
@@ -411,35 +333,7 @@ void FixSession::onOrderCancelRequest(const Fixpp::v42::Message::OrderCancelRequ
         return;
     }
 
-    // --- Validate required fields ---
-
-    std::string symbol;
-    if (!Fixpp::tryGet<Fixpp::Tag::Symbol>(cancel, symbol)) {
-        logger_.warn("FIX OrderCancelRequest missing Symbol");
-        sendBusinessReject("F", 5, "Required tag missing: Symbol (55)");
-        return;
-    }
-    const TickerId ticker = translator_.resolve(symbol);
-    if (ticker == TickerId::INVALID) {
-        logger_.warn("FIX OrderCancelRequest unknown symbol: ", utils::ShortString(symbol));
-        sendBusinessReject("F", 2, "Unknown symbol");
-        return;
-    }
-
-    char side_char = 0;
-    if (!Fixpp::tryGet<Fixpp::Tag::Side>(cancel, side_char)) {
-        logger_.warn("FIX OrderCancelRequest missing Side");
-        sendBusinessReject("F", 5, "Required tag missing: Side (54)");
-        return;
-    }
-    const Side side = toInternalSide(side_char);
-    if (side == Side::INVALID) {
-        logger_.warn("FIX OrderCancelRequest invalid Side: ", side_char);
-        sendBusinessReject("F", 0, "Invalid Side value");
-        return;
-    }
-
-    // --- Build request ---
+    // --- Resolve user ---
 
     std::string cl_ord_id;
     Fixpp::tryGet<Fixpp::Tag::ClOrdID>(cancel, cl_ord_id);
@@ -449,15 +343,18 @@ void FixSession::onOrderCancelRequest(const Fixpp::v42::Message::OrderCancelRequ
         hash = hash * 31 + static_cast<uint32_t>(static_cast<unsigned char>(c));
     const UserId user_id{hash % 1024 + 1};
 
-    Request req{
-        .type = RequestType::CANCEL,
-        .user_id = user_id,
-        .ticker_id = ticker,
-        .order_id = OrderId::INVALID,
-        .side = side,
-        .price = Price::INVALID,
-        .qty = Quantity::INVALID,
-    };
+    // --- Parse and validate ---
+
+    auto result = details::parseOrderCancelRequest(cancel, user_id, translator_);
+    if (!result.has_value()) {
+        logger_.warn("FIX OrderCancelRequest: ", result.error());
+        const bool is_missing = (std::string_view{result.error()}.find("Required tag missing") !=
+                                 std::string_view::npos);
+        sendBusinessReject("F", is_missing ? 5 : 0, result.error());
+        return;
+    }
+
+    // --- Enqueue request ---
 
     const size_t idx = request_queue_.reserve(1);
     if (idx == static_cast<size_t>(-1)) {
@@ -465,11 +362,13 @@ void FixSession::onOrderCancelRequest(const Fixpp::v42::Message::OrderCancelRequ
         sendBusinessReject("F", 4, "System busy, please retry");
         return;
     }
+    const Request& req = *result;
     *request_queue_.slot(idx) = req;
     request_queue_.commit(idx, 1);
 
-    logger_.debug("FIX OrderCancelRequest: ticker=", static_cast<int>(type_safe::get(ticker)),
-                  " side=", static_cast<int>(side));
+    logger_.debug(
+        "FIX OrderCancelRequest: ticker=", static_cast<int>(type_safe::get(req.ticker_id)),
+        " side=", static_cast<int>(req.side));
 }
 
 Fixpp::v42::Header FixSession::buildHeader() const {
