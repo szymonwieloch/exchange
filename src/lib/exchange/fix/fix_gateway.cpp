@@ -21,6 +21,7 @@ FixGateway::FixGateway(const FixGatewayConfig& config, const AssetTranslator& tr
       user_mgr_(user_mgr),
       work_guard_(boost::asio::make_work_guard(io_context_)),
       acceptor_(io_context_),
+      response_thread_("fix-resp", logger, config.response_thread_core),
       sessions_(logger, translator, request_queue, user_mgr,
                 FixSessionConfig{.sender_comp_id = config.sender_comp_id,
                                  .target_comp_id = config.target_comp_id,
@@ -93,6 +94,10 @@ bool FixGateway::start() {
         });
     }
 
+    // Launch the response dispatch thread
+    [[maybe_unused]] const bool started = response_thread_.start(
+        [this](const std::atomic<bool>& is_running) { processResponses(is_running); });
+
     // Begin accepting connections
     doAccept();
 
@@ -119,6 +124,8 @@ void FixGateway::stop() noexcept {
         }
     }
     thread_pool_.clear();
+
+    response_thread_.stop();
 
     logger_.info("FIX gateway stopped");
 }
@@ -155,6 +162,27 @@ void FixGateway::onAccept(const boost::system::error_code& ec,
 
     // Continue accepting
     doAccept();
+}
+
+void FixGateway::processResponses(const std::atomic<bool>& is_running) noexcept {
+    while (is_running.load(std::memory_order_acquire)) {
+        const Response* resp = response_queue_.getNextToRead();
+        if (resp == nullptr) {
+            // Queue empty — yield to avoid burning CPU while idle.
+            std::this_thread::yield();
+            continue;
+        }
+
+        // Find the session that originated this response.
+        auto session = sessions_.find(resp->session_id, resp->user_id);
+        if (!session) {
+            logger_.warn("Skipping response because session was not found, session=",
+                         type_safe::get(resp->session_id), " user=", type_safe::get(resp->user_id));
+            return;
+        }
+        // TODO: pass it to session
+        response_queue_.updateReadIndex();
+    }
 }
 
 }  // namespace exchange::fix

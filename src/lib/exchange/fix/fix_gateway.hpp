@@ -21,6 +21,7 @@
 #include "lib/exchange/asset_translator.hpp"
 #include "lib/exchange/request.h"
 #include "lib/utils/log.h"
+#include "lib/utils/thread.h"
 
 namespace exchange {
 class UserManager;
@@ -84,8 +85,12 @@ private:
 
     std::atomic<bool> running_{false};
     std::vector<std::thread> thread_pool_;
+    utils::Thread response_thread_;
 
     FixSessions sessions_;
+
+    /// Polls response_queue_ and dispatches responses to the matching session.
+    void processResponses(const std::atomic<bool>& is_running) noexcept;
 };
 
 }  // namespace exchange::fix

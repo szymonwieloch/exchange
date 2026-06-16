@@ -18,6 +18,9 @@ engine_core = 0
 # CPU core to pin the logger background thread to.
 # Set to -1 (or omit) for no pinning.
 logger_core = 1
+# CPU core to pin the FIX response dispatch thread to.
+# Set to -1 (or omit / null) for no pinning.
+response_thread_core = null
 
 [metrics]
 # Set to true to enable the Prometheus metrics HTTP endpoint.

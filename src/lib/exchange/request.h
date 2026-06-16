@@ -18,6 +18,7 @@ enum class ResponseType : uint8_t {
 
 struct Request {
     RequestType type = RequestType::INVALID;
+    SessionId session_id = SessionId::INVALID;
     UserId user_id = UserId::INVALID;
     TickerId ticker_id = TickerId::INVALID;
     OrderId order_id = OrderId::INVALID;
@@ -28,6 +29,7 @@ struct Request {
 
 struct Response {
     ResponseType type = ResponseType::INVALID;
+    SessionId session_id = SessionId::INVALID;
     UserId user_id = UserId::INVALID;
     TickerId ticker_id = TickerId::INVALID;
     OrderId order_id = OrderId::INVALID;

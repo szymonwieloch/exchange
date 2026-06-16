@@ -120,6 +120,7 @@ int main(int argc, char* argv[]) {
             .sender_comp_id = config.fix.sender_comp_id,
             .target_comp_id = config.fix.target_comp_id,
             .heartbeat_interval = config.fix.heartbeat_interval,
+            .response_thread_core = config.threading.response_thread_core,
         };
         fix_gateway = std::make_unique<exchange::fix::FixGateway>(
             fix_cfg, asset_translator, request_queue, response_queue, user_mgr, logger);
@@ -133,9 +134,9 @@ int main(int argc, char* argv[]) {
     // ── Instantiate the matching engine ────────────────────────────
     exchange::MatchingEngine engine(&request_queue, &response_queue, &md_queue, mreg, logger);
 
-    if (config.threading.engine_core >= 0) {
-        if (!utils::setThreadCore(config.threading.engine_core)) {
-            logger.error("failed to pin engine thread to core ", config.threading.engine_core);
+    if (config.threading.engine_core.has_value()) {
+        if (!utils::setThreadCore(*config.threading.engine_core)) {
+            logger.error("failed to pin engine thread to core ", *config.threading.engine_core);
         }
     }
 

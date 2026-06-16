@@ -30,5 +30,9 @@ struct FixGatewayConfig {
 
     /// Heartbeat interval in seconds.
     std::uint32_t heartbeat_interval = DEFAULT_HEARTBEAT_INTERVAL;
+
+    /// CPU core to pin the response dispatch thread to.
+    /// -1 = no pinning; >= 0 = pin to that specific core.
+    std::optional<int> response_thread_core;
 };
 }  // namespace exchange::fix

@@ -44,8 +44,9 @@ struct Config {
 
     /// Thread-pinning configuration.
     struct Threading {
-        int engine_core = -1;  // -1 = no pinning
-        int logger_core = -1;
+        std::optional<int> engine_core;
+        std::optional<int> logger_core;
+        std::optional<int> response_thread_core;
     };
 
     /// Prometheus metrics server configuration.
@@ -97,7 +98,8 @@ struct glz::meta<Config::Engine> {
 template <>
 struct glz::meta<Config::Threading> {
     using T = Config::Threading;
-    static constexpr auto value = glz::object(&T::engine_core, &T::logger_core);
+    static constexpr auto value =
+        glz::object(&T::engine_core, &T::logger_core, &T::response_thread_core);
 };
 
 template <>

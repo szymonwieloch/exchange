@@ -15,13 +15,13 @@ public:
           request_queue_(request_queue),
           user_mgr_(user_mgr),
           ses_cfg_(ses_cfg) {}
-    std::weak_ptr<FixSession> find(SessionId sessionId, UserId /*user_id*/) const noexcept {
+    std::shared_ptr<FixSession> find(SessionId sessionId, UserId /*user_id*/) const noexcept {
         std::lock_guard lock(mutex_);
         auto it = sessions_.find(sessionId);
         if (it == sessions_.end()) {
             return {};
         } else {
-            return it->second;
+            return it->second.lock();
         }
     }
     std::shared_ptr<FixSession> create(boost::asio::ip::tcp::socket socket) {

@@ -143,8 +143,8 @@ TEST(EngineTest, ErrorOnUnknownKey) {
 TEST(ThreadingTest, DefaultsWhenSectionMissing) {
     auto result = parseConfigString("");
     ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(result->threading.engine_core, -1);
-    EXPECT_EQ(result->threading.logger_core, -1);
+    EXPECT_EQ(result->threading.engine_core, std::nullopt);
+    EXPECT_EQ(result->threading.logger_core, std::nullopt);
 }
 
 TEST(ThreadingTest, ParsesBothCores) {
@@ -165,7 +165,7 @@ TEST(ThreadingTest, ParsesPartialSettings) {
     )");
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result->threading.engine_core, 0);
-    EXPECT_EQ(result->threading.logger_core, -1);  // default preserved
+    EXPECT_EQ(result->threading.logger_core, std::nullopt);  // default preserved
 }
 
 TEST(ThreadingTest, NegativeCoreValues) {
@@ -266,8 +266,8 @@ TEST(ParseConfigTest, AllDefaultsWithEmptyConfig) {
     EXPECT_EQ(result->logging.level, utils::LogLevel::INFO);
     EXPECT_EQ(result->logging.file, "exchange.log");
     EXPECT_TRUE(result->engine.tickers.empty());
-    EXPECT_EQ(result->threading.engine_core, -1);
-    EXPECT_EQ(result->threading.logger_core, -1);
+    EXPECT_EQ(result->threading.engine_core, std::nullopt);
+    EXPECT_EQ(result->threading.logger_core, std::nullopt);
     EXPECT_EQ(result->metrics.enabled, false);
     EXPECT_EQ(result->metrics.port, 9090);
 }
