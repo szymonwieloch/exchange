@@ -24,7 +24,8 @@ namespace {
 
 struct SessionVisitor : public Fixpp::StaticVisitor<void> {
     FixSession& session;
-    explicit SessionVisitor(FixSession& s) : session(s) {}
+    std::string_view msgView;
+    SessionVisitor(FixSession& s, std::string_view mv) : session(s), msgView(mv) {}
 
     void operator()(const Fixpp::v42::Header::Ref& header,
                     const Fixpp::v42::Message::Logon::Ref& logon) {
@@ -40,8 +41,7 @@ struct SessionVisitor : public Fixpp::StaticVisitor<void> {
         }
         int64_t heartbeat = 0;
         Fixpp::tryGet<Fixpp::Tag::HeartBtInt>(logon, heartbeat);
-        session.onLogon(sender, target, static_cast<uint32_t>(heartbeat),
-                        std::move(session.last_username_), std::move(session.last_password_));
+        session.onLogon(sender, target, static_cast<uint32_t>(heartbeat), msgView);
     }
 
     void operator()(const Fixpp::v42::Header::Ref& /*header*/,
@@ -92,10 +92,7 @@ struct SessionVisitor : public Fixpp::StaticVisitor<void> {
     void operator()(H header, M /*msg*/) {
         int64_t seq_num = 0;
         Fixpp::tryGet<Fixpp::Tag::MsgSeqNum>(header, seq_num);
-        session.onUnhandledMessage(static_cast<uint64_t>(seq_num),
-                                   session.last_msg_type_.empty()
-                                       ? std::string_view{"?"}
-                                       : std::string_view{session.last_msg_type_});
+        session.onUnhandledMessage(static_cast<uint64_t>(seq_num), msgView);
     }
 };
 
@@ -188,31 +185,20 @@ size_t FixSession::processBuffer() {
 }
 
 void FixSession::dispatchMessage(const char* frame, size_t size) {
-    // Cache MsgType and MsgSeqNum from the raw frame before parsing,
-    // so error handlers can reference them.
-    last_msg_type_.clear();
+    // Cache MsgSeqNum from the raw frame before parsing,
+    // so error handlers can reference it.
     last_msg_seq_num_ = 0;
-    last_username_.clear();
-    last_password_.clear();
     {
-        auto mt = extractTag(frame, size, "35=");
-        if (!mt.empty())
-            last_msg_type_ = mt;
         auto sn = extractTag(frame, size, "34=");
         if (!sn.empty()) {
             auto fc = std::from_chars(sn.data(), sn.data() + sn.size(), last_msg_seq_num_);
             if (fc.ec != std::errc{})
                 last_msg_seq_num_ = 0;
         }
-        auto un = extractTag(frame, size, "553=");
-        if (!un.empty())
-            last_username_ = un;
-        auto pw = extractTag(frame, size, "554=");
-        if (!pw.empty())
-            last_password_ = pw;
     }
 
-    SessionVisitor visitor(*this);
+    const std::string_view msgView(frame, size);
+    SessionVisitor visitor(*this, msgView);
     auto result = Fixpp::visit(frame, size, visitor, SessionVisitRules{});
     if (!result.isOk()) {
         const auto& err = result.unwrapErr();
@@ -236,7 +222,11 @@ std::string_view FixSession::extractTag(const char* frame, size_t size, std::str
 }
 
 void FixSession::onLogon(const std::string& /*sender*/, const std::string& /*target*/,
-                         uint32_t heartbeat_secs, std::string username, std::string password) {
+                         uint32_t heartbeat_secs, std::string_view msgView) {
+    // Extract credentials from the raw message view
+    std::string username{extractTag(msgView.data(), msgView.size(), "553=")};
+    std::string password{extractTag(msgView.data(), msgView.size(), "554=")};
+
     // Validate credentials
     auto opt_user = user_mgr_.checkUser(username, password);
     if (!opt_user.has_value()) {
@@ -296,11 +286,13 @@ void FixSession::onSequenceReset(uint64_t new_seq) {
     seq_num_in_ = new_seq;
 }
 
-void FixSession::onUnhandledMessage(uint64_t /*ref_seq_num*/, std::string_view msg_type) {
-    std::string mt{msg_type};
-    logger_.warn("FIX unhandled message type: ", utils::ShortString(mt));
+void FixSession::onUnhandledMessage(uint64_t /*ref_seq_num*/, std::string_view msgView) {
+    auto mt = extractTag(msgView.data(), msgView.size(), "35=");
+    std::string_view msgType = mt.empty() ? std::string_view{"?"} : mt;
+    std::string mts{msgType};
+    logger_.warn("FIX unhandled message type: ", utils::ShortString(mts));
     // BusinessRejectReason 3 = Unsupported Message Type
-    sendBusinessReject(msg_type, 3, "Unsupported message type");
+    sendBusinessReject(msgType, 3, "Unsupported message type");
 }
 
 void FixSession::onNewOrderSingle(const Fixpp::v42::Message::NewOrderSingle::Ref& order) {

@@ -80,8 +80,9 @@ public:
     // --- Incoming message handlers (called by visitor) ---
 
     /// Handles a Logon message. Validates credentials via UserManager.
+    /// @param msgView  Raw message view for extracting Username (553) and Password (554).
     void onLogon(const std::string& sender, const std::string& target, uint32_t heartbeat_secs,
-                 std::string username, std::string password);
+                 std::string_view msgView);
     /// Handles a Heartbeat message.
     void onHeartbeat(const std::string& test_req_id);
     /// Handles a TestRequest message.
@@ -98,8 +99,8 @@ public:
     void onOrderCancelRequest(const Fixpp::v42::Message::OrderCancelRequest::Ref& cancel);
     /// Handles any unhandled message type.
     /// @param ref_seq_num  The MsgSeqNum from the incoming message header.
-    /// @param msg_type     The MsgType string of the unhandled message.
-    void onUnhandledMessage(uint64_t ref_seq_num, std::string_view msg_type);
+    /// @param msgView      Raw message view for extracting MsgType (35).
+    void onUnhandledMessage(uint64_t ref_seq_num, std::string_view msgView);
 
     // --- Outgoing message builders ---
 
@@ -120,16 +121,8 @@ public:
     /// @param text          Human-readable explanation.
     void sendBusinessReject(std::string_view ref_msg_type, int reason, std::string_view text = {});
 
-    /// Cached MsgType from the currently-parsing frame (for error reporting).
-    /// Public because the visitor (in an anonymous namespace) accesses it.
-    // TODO: try to remove those by switching to a different FIX library
-    std::string last_msg_type_;
     /// Cached MsgSeqNum from the currently-parsing frame (for error reporting).
     uint64_t last_msg_seq_num_{0};
-    /// Cached Username from the currently-parsing Logon frame (tag 553).
-    std::string last_username_;
-    /// Cached Password from the currently-parsing Logon frame (tag 554).
-    std::string last_password_;
 
 private:
     void doRead();
