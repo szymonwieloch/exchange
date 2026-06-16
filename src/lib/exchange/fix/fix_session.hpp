@@ -33,6 +33,10 @@
 #include "lib/utils/buffer.h"
 #include "lib/utils/log.h"
 
+namespace exchange {
+class UserManager;
+}
+
 namespace exchange::fix {
 
 /// Configuration for a single FIX session acceptor.
@@ -55,12 +59,14 @@ enum class SessionState : uint8_t {
 class FixSession final : public std::enable_shared_from_this<FixSession> {
 public:
     FixSession(boost::asio::ip::tcp::socket socket, const AssetTranslator& translator,
-               const FixSessionConfig& config, RequestLFQueue& request_queue, utils::Logger& logger)
+               const FixSessionConfig& config, RequestLFQueue& request_queue, utils::Logger& logger,
+               UserManager& user_mgr)
         : socket_(std::move(socket)),
           translator_(translator),
           config_(config),
           request_queue_(request_queue),
           logger_(logger),
+          user_mgr_(user_mgr),
           heartbeat_timer_(socket_.get_executor()) {}
 
     ~FixSession();
@@ -153,6 +159,7 @@ private:
     const FixSessionConfig config_;
     RequestLFQueue& request_queue_;
     utils::Logger& logger_;
+    const UserManager& user_mgr_;
 
     /// Timer for heartbeat / idle detection.
     boost::asio::steady_timer heartbeat_timer_;
