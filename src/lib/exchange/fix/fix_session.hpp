@@ -38,6 +38,7 @@ class UserManager;
 }
 
 namespace exchange::fix {
+class FixSessions;
 
 /// Configuration for a single FIX session acceptor.
 struct FixSessionConfig {
@@ -60,7 +61,7 @@ class FixSession final : public std::enable_shared_from_this<FixSession> {
 public:
     FixSession(SessionId id, boost::asio::ip::tcp::socket socket, const AssetTranslator& translator,
                const FixSessionConfig& config, RequestLFQueue& request_queue, utils::Logger& logger,
-               UserManager& user_mgr)
+               UserManager& user_mgr, FixSessions& sessions)
         : id_(id),
           socket_(std::move(socket)),
           translator_(translator),
@@ -68,6 +69,7 @@ public:
           request_queue_(request_queue),
           logger_(logger),
           user_mgr_(user_mgr),
+          sessions_(sessions),
           heartbeat_timer_(socket_.get_executor()) {}
 
     ~FixSession();
@@ -150,12 +152,7 @@ private:
     [[nodiscard]] static std::string_view extractTag(const char* frame, size_t size,
                                                      std::string_view tag);
 
-    void close() noexcept {
-        boost::system::error_code ec;
-        heartbeat_timer_.cancel(ec);
-        socket_.close(ec);
-        state_ = SessionState::Disconnected;
-    }
+    void close() noexcept;
 
     // --- Header helpers ---
     /// Builds a standard header with the current outgoing sequence number.
@@ -168,6 +165,7 @@ private:
     RequestLFQueue& request_queue_;
     utils::Logger& logger_;
     const UserManager& user_mgr_;
+    FixSessions& sessions_;
 
     /// Timer for heartbeat / idle detection.
     boost::asio::steady_timer heartbeat_timer_;

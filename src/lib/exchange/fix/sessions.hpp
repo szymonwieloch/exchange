@@ -27,10 +27,15 @@ public:
     std::shared_ptr<FixSession> create(boost::asio::ip::tcp::socket socket) {
         auto id = SessionId(next_id_++);
         auto session = std::make_shared<FixSession>(id, std::move(socket), translator_, ses_cfg_,
-                                                    request_queue_, logger_, user_mgr_);
+                                                    request_queue_, logger_, user_mgr_, *this);
         std::lock_guard lock(mutex_);
         sessions_[id] = session;
         return session;
+    }
+
+    void remove(SessionId id) noexcept {
+        std::lock_guard lock(mutex_);
+        sessions_.erase(id);
     }
 
 private:

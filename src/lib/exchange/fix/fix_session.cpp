@@ -15,6 +15,7 @@
 
 #include "lib/exchange/definitions.h"
 #include "lib/exchange/fix/fix_helpers.hpp"
+#include "lib/exchange/fix/sessions.hpp"
 #include "lib/exchange/user_mgr.h"
 #include "lib/utils/log.h"
 
@@ -125,6 +126,14 @@ void serializeAndSend(const Fixpp::v42::Header& header, const Message& msg, uint
 
 FixSession::~FixSession() {
     close();
+}
+
+void FixSession::close() noexcept {
+    sessions_.remove(id_);
+    boost::system::error_code ec;
+    heartbeat_timer_.cancel(ec);
+    socket_.close(ec);
+    state_ = SessionState::Disconnected;
 }
 
 void FixSession::start() {
