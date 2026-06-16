@@ -11,11 +11,14 @@
 namespace exchange::fix {
 
 FixGateway::FixGateway(const FixGatewayConfig& config, const AssetTranslator& translator,
-                       RequestLFQueue& request_queue, utils::Logger& logger)
+                       RequestLFQueue& request_queue, ResponseLFQueue& response_queue,
+                       UserManager& user_mgr, utils::Logger& logger)
     : config_(config),
       translator_(translator),
       logger_(logger),
       request_queue_(request_queue),
+      response_queue_(response_queue),
+      user_mgr_(user_mgr),
       work_guard_(boost::asio::make_work_guard(io_context_)),
       acceptor_(io_context_) {}
 

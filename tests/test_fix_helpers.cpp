@@ -16,9 +16,13 @@
 
 // Use pipe as SOH separator for readable test strings.
 #define SOH_CHARACTER '|'
+// Suppress deprecated warnings from fixpp (std::aligned_storage in C++23)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <fixpp/tag.h>
 #include <fixpp/versions/v42.h>
 #include <fixpp/visitor.h>
+#pragma GCC diagnostic pop
 
 #include "lib/exchange/asset_translator.hpp"
 #include "lib/exchange/definitions.h"
@@ -58,7 +62,7 @@ struct TestRules : public Fixpp::VisitRules {
     int sum = 0;
     for (char c : upToChecksum)
         sum += static_cast<unsigned char>(c);
-    char buf[4];
+    char buf[8];
     std::snprintf(buf, sizeof(buf), "%03d", sum % 256);
     return buf;
 }
@@ -94,29 +98,58 @@ struct TestRules : public Fixpp::VisitRules {
     return msg;
 }
 
-/// Parses a raw FIX message string and invokes @p cb with the parsed message
-/// reference.  Fails the test if parsing fails or the wrong message type is
-/// visited.
-///
-/// @tparam Message  The expected fixpp message type (e.g.
-///                  Fixpp::v42::Message::NewOrderSingle).
-/// @param raw       A raw FIX message with '|' as delimiter.
-/// @param cb        Callback receiving `const Message::Ref&`.
-template <typename Message, typename Callback>
-static void withParsedMessage(std::string_view raw, Callback&& cb) {
-    struct Visitor : public Fixpp::StaticVisitor<void> {
-        Callback& cb;
-        void operator()(const Fixpp::v42::Header::Ref& /*header*/,
-                        const typename Message::Ref& msg) {
-            cb(msg);
-        }
-        template <typename H, typename M>
-        void operator()(H, M) {
-            FAIL() << "Unexpected FIX message type visited";
-        }
-    };
-    Visitor visitor{cb};
-    // Fixpp::visit internally casts to char*, so we need a mutable copy.
+// ===================================================================
+//  FIX message visitor helpers
+// ===================================================================
+
+/// Visitor that captures a parsed NewOrderSingle message and forwards it
+/// to a callback.  Any other message type triggers a test failure.
+template <typename Callback>
+struct NewOrderSingleVisitor : public Fixpp::StaticVisitor<void> {
+    Callback& cb;
+    explicit NewOrderSingleVisitor(Callback& c) : cb(c) {}
+    void operator()(const Fixpp::v42::Header::Ref& /*header*/,
+                    const Fixpp::v42::Message::NewOrderSingle::Ref& msg) {
+        cb(msg);
+    }
+    template <typename H, typename M>
+    void operator()(H, M) {
+        FAIL() << "Unexpected FIX message type visited";
+    }
+};
+
+/// Visitor that captures a parsed OrderCancelRequest message and forwards it
+/// to a callback.  Any other message type triggers a test failure.
+template <typename Callback>
+struct OrderCancelRequestVisitor : public Fixpp::StaticVisitor<void> {
+    Callback& cb;
+    explicit OrderCancelRequestVisitor(Callback& c) : cb(c) {}
+    void operator()(const Fixpp::v42::Header::Ref& /*header*/,
+                    const Fixpp::v42::Message::OrderCancelRequest::Ref& msg) {
+        cb(msg);
+    }
+    template <typename H, typename M>
+    void operator()(H, M) {
+        FAIL() << "Unexpected FIX message type visited";
+    }
+};
+
+/// Parses a raw FIX NewOrderSingle (MsgType=D) string and invokes @p cb with
+/// the parsed message reference.  Fails the test if parsing fails or a
+/// different message type is visited.
+template <typename Callback>
+static void withParsedNewOrderSingle(std::string_view raw, Callback&& cb) {
+    NewOrderSingleVisitor<Callback> visitor{cb};
+    std::string mutableCopy{raw};
+    auto result = Fixpp::visit(mutableCopy.data(), mutableCopy.size(), visitor, TestRules{});
+    ASSERT_TRUE(result.isOk()) << result.unwrapErr().asString();
+}
+
+/// Parses a raw FIX OrderCancelRequest (MsgType=F) string and invokes @p cb
+/// with the parsed message reference.
+template <typename Callback>
+static void withParsedOrderCancelRequest(std::string_view raw, Callback&& cb) {
+    OrderCancelRequestVisitor<Callback> visitor{cb};
     std::string mutableCopy{raw};
     auto result = Fixpp::visit(mutableCopy.data(), mutableCopy.size(), visitor, TestRules{});
     ASSERT_TRUE(result.isOk()) << result.unwrapErr().asString();
@@ -180,7 +213,7 @@ TEST(ParseNewOrderSingleTest, ValidMarketOrderWithoutPrice) {
     auto translator = makeTranslator({"AAPL", "GOOG"});
     const UserId user{42};
 
-    withParsedMessage<Fixpp::v42::Message::NewOrderSingle>(raw, [&](const auto& order) {
+    withParsedNewOrderSingle(raw, [&](const auto& order) {
         auto result = exchange::fix::details::parseNewOrderSingle(order, user, translator);
         ASSERT_TRUE(result.has_value()) << result.error();
         const auto& req = *result;
@@ -200,7 +233,7 @@ TEST(ParseNewOrderSingleTest, ValidLimitOrderWithPrice) {
     auto translator = makeTranslator({"AAPL", "GOOG"});
     const UserId user{7};
 
-    withParsedMessage<Fixpp::v42::Message::NewOrderSingle>(raw, [&](const auto& order) {
+    withParsedNewOrderSingle(raw, [&](const auto& order) {
         auto result = exchange::fix::details::parseNewOrderSingle(order, user, translator);
         ASSERT_TRUE(result.has_value()) << result.error();
         const auto& req = *result;
@@ -219,7 +252,7 @@ TEST(ParseNewOrderSingleTest, BuyLimitOrder) {
     auto translator = makeTranslator({"AAPL"});
     const UserId user{100};
 
-    withParsedMessage<Fixpp::v42::Message::NewOrderSingle>(raw, [&](const auto& order) {
+    withParsedNewOrderSingle(raw, [&](const auto& order) {
         auto result = exchange::fix::details::parseNewOrderSingle(order, user, translator);
         ASSERT_TRUE(result.has_value()) << result.error();
         const auto& req = *result;
@@ -235,7 +268,7 @@ TEST(ParseNewOrderSingleTest, LargeQuantityAndPrice) {
     auto translator = makeTranslator({"AAPL"});
     const UserId user{1};
 
-    withParsedMessage<Fixpp::v42::Message::NewOrderSingle>(raw, [&](const auto& order) {
+    withParsedNewOrderSingle(raw, [&](const auto& order) {
         auto result = exchange::fix::details::parseNewOrderSingle(order, user, translator);
         ASSERT_TRUE(result.has_value()) << result.error();
         const auto& req = *result;
@@ -254,7 +287,7 @@ TEST(ParseNewOrderSingleTest, MissingSymbol) {
     auto translator = makeTranslator({"AAPL"});
     const UserId user{1};
 
-    withParsedMessage<Fixpp::v42::Message::NewOrderSingle>(raw, [&](const auto& order) {
+    withParsedNewOrderSingle(raw, [&](const auto& order) {
         auto result = exchange::fix::details::parseNewOrderSingle(order, user, translator);
         ASSERT_FALSE(result.has_value());
         EXPECT_STREQ(result.error(), "Required tag missing: Symbol (55)");
@@ -266,7 +299,7 @@ TEST(ParseNewOrderSingleTest, UnknownSymbol) {
     auto translator = makeTranslator({"AAPL", "GOOG"});  // MSFT not registered
     const UserId user{1};
 
-    withParsedMessage<Fixpp::v42::Message::NewOrderSingle>(raw, [&](const auto& order) {
+    withParsedNewOrderSingle(raw, [&](const auto& order) {
         auto result = exchange::fix::details::parseNewOrderSingle(order, user, translator);
         ASSERT_FALSE(result.has_value());
         EXPECT_STREQ(result.error(), "Unknown symbol");
@@ -279,7 +312,7 @@ TEST(ParseNewOrderSingleTest, MissingSide) {
     auto translator = makeTranslator({"AAPL"});
     const UserId user{1};
 
-    withParsedMessage<Fixpp::v42::Message::NewOrderSingle>(raw, [&](const auto& order) {
+    withParsedNewOrderSingle(raw, [&](const auto& order) {
         auto result = exchange::fix::details::parseNewOrderSingle(order, user, translator);
         ASSERT_FALSE(result.has_value());
         EXPECT_STREQ(result.error(), "Required tag missing: Side (54)");
@@ -291,7 +324,7 @@ TEST(ParseNewOrderSingleTest, InvalidSide) {
     auto translator = makeTranslator({"AAPL"});
     const UserId user{1};
 
-    withParsedMessage<Fixpp::v42::Message::NewOrderSingle>(raw, [&](const auto& order) {
+    withParsedNewOrderSingle(raw, [&](const auto& order) {
         auto result = exchange::fix::details::parseNewOrderSingle(order, user, translator);
         ASSERT_FALSE(result.has_value());
         EXPECT_STREQ(result.error(), "Invalid Side value");
@@ -303,7 +336,7 @@ TEST(ParseNewOrderSingleTest, MissingOrdType) {
     auto translator = makeTranslator({"AAPL"});
     const UserId user{1};
 
-    withParsedMessage<Fixpp::v42::Message::NewOrderSingle>(raw, [&](const auto& order) {
+    withParsedNewOrderSingle(raw, [&](const auto& order) {
         auto result = exchange::fix::details::parseNewOrderSingle(order, user, translator);
         ASSERT_FALSE(result.has_value());
         EXPECT_STREQ(result.error(), "Required tag missing: OrdType (40)");
@@ -316,7 +349,7 @@ TEST(ParseNewOrderSingleTest, InvalidOrdType) {
     auto translator = makeTranslator({"AAPL"});
     const UserId user{1};
 
-    withParsedMessage<Fixpp::v42::Message::NewOrderSingle>(raw, [&](const auto& order) {
+    withParsedNewOrderSingle(raw, [&](const auto& order) {
         auto result = exchange::fix::details::parseNewOrderSingle(order, user, translator);
         ASSERT_FALSE(result.has_value());
         EXPECT_STREQ(result.error(), "Unsupported OrderType");
@@ -328,7 +361,7 @@ TEST(ParseNewOrderSingleTest, MissingOrderQty) {
     auto translator = makeTranslator({"AAPL"});
     const UserId user{1};
 
-    withParsedMessage<Fixpp::v42::Message::NewOrderSingle>(raw, [&](const auto& order) {
+    withParsedNewOrderSingle(raw, [&](const auto& order) {
         auto result = exchange::fix::details::parseNewOrderSingle(order, user, translator);
         ASSERT_FALSE(result.has_value());
         EXPECT_STREQ(result.error(), "Required tag missing: OrderQty (38)");
@@ -340,7 +373,7 @@ TEST(ParseNewOrderSingleTest, UnknownSymbolEmptyTranslator) {
     auto translator = makeTranslator({});  // empty — no symbols known
     const UserId user{1};
 
-    withParsedMessage<Fixpp::v42::Message::NewOrderSingle>(raw, [&](const auto& order) {
+    withParsedNewOrderSingle(raw, [&](const auto& order) {
         auto result = exchange::fix::details::parseNewOrderSingle(order, user, translator);
         ASSERT_FALSE(result.has_value());
         EXPECT_STREQ(result.error(), "Unknown symbol");
@@ -356,7 +389,7 @@ TEST(ParseOrderCancelRequestTest, ValidCancelBuy) {
     auto translator = makeTranslator({"AAPL", "GOOG"});
     const UserId user{99};
 
-    withParsedMessage<Fixpp::v42::Message::OrderCancelRequest>(raw, [&](const auto& cancel) {
+    withParsedOrderCancelRequest(raw, [&](const auto& cancel) {
         auto result = exchange::fix::details::parseOrderCancelRequest(cancel, user, translator);
         ASSERT_TRUE(result.has_value()) << result.error();
         const auto& req = *result;
@@ -374,7 +407,7 @@ TEST(ParseOrderCancelRequestTest, ValidCancelSell) {
     auto translator = makeTranslator({"AAPL", "GOOG"});
     const UserId user{3};
 
-    withParsedMessage<Fixpp::v42::Message::OrderCancelRequest>(raw, [&](const auto& cancel) {
+    withParsedOrderCancelRequest(raw, [&](const auto& cancel) {
         auto result = exchange::fix::details::parseOrderCancelRequest(cancel, user, translator);
         ASSERT_TRUE(result.has_value()) << result.error();
         const auto& req = *result;
@@ -393,7 +426,7 @@ TEST(ParseOrderCancelRequestTest, MissingSymbol) {
     auto translator = makeTranslator({"AAPL"});
     const UserId user{1};
 
-    withParsedMessage<Fixpp::v42::Message::OrderCancelRequest>(raw, [&](const auto& cancel) {
+    withParsedOrderCancelRequest(raw, [&](const auto& cancel) {
         auto result = exchange::fix::details::parseOrderCancelRequest(cancel, user, translator);
         ASSERT_FALSE(result.has_value());
         EXPECT_STREQ(result.error(), "Required tag missing: Symbol (55)");
@@ -405,7 +438,7 @@ TEST(ParseOrderCancelRequestTest, UnknownSymbol) {
     auto translator = makeTranslator({"AAPL"});  // TSLA unknown
     const UserId user{1};
 
-    withParsedMessage<Fixpp::v42::Message::OrderCancelRequest>(raw, [&](const auto& cancel) {
+    withParsedOrderCancelRequest(raw, [&](const auto& cancel) {
         auto result = exchange::fix::details::parseOrderCancelRequest(cancel, user, translator);
         ASSERT_FALSE(result.has_value());
         EXPECT_STREQ(result.error(), "Unknown symbol");
@@ -417,7 +450,7 @@ TEST(ParseOrderCancelRequestTest, MissingSide) {
     auto translator = makeTranslator({"AAPL"});
     const UserId user{1};
 
-    withParsedMessage<Fixpp::v42::Message::OrderCancelRequest>(raw, [&](const auto& cancel) {
+    withParsedOrderCancelRequest(raw, [&](const auto& cancel) {
         auto result = exchange::fix::details::parseOrderCancelRequest(cancel, user, translator);
         ASSERT_FALSE(result.has_value());
         EXPECT_STREQ(result.error(), "Required tag missing: Side (54)");
@@ -429,7 +462,7 @@ TEST(ParseOrderCancelRequestTest, InvalidSide) {
     auto translator = makeTranslator({"AAPL"});
     const UserId user{1};
 
-    withParsedMessage<Fixpp::v42::Message::OrderCancelRequest>(raw, [&](const auto& cancel) {
+    withParsedOrderCancelRequest(raw, [&](const auto& cancel) {
         auto result = exchange::fix::details::parseOrderCancelRequest(cancel, user, translator);
         ASSERT_FALSE(result.has_value());
         EXPECT_STREQ(result.error(), "Invalid Side value");

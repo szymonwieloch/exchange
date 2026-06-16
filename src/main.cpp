@@ -13,6 +13,7 @@
 #include "lib/exchange/md.h"
 #include "lib/exchange/metric_registry.h"
 #include "lib/exchange/request.h"
+#include "lib/exchange/user_mgr.h"
 #include "lib/main/config.h"
 #include "lib/utils/die.h"
 #include "lib/utils/log.h"
@@ -103,6 +104,7 @@ int main(int argc, char* argv[]) {
     auto request_queue = exchange::RequestLFQueue(exchange::MAX_USER_UPDATES);
     auto response_queue = exchange::ResponseLFQueue(exchange::MAX_USER_UPDATES);
     auto md_queue = exchange::MDLFQueue(exchange::MAX_MARKET_UPDATES);
+    exchange::UserManager user_mgr;
 
     // ── FIX gateway ──────────────────────────────────────────────────
     exchange::AssetTranslator asset_translator(config.engine.tickers);
@@ -119,8 +121,8 @@ int main(int argc, char* argv[]) {
             .target_comp_id = config.fix.target_comp_id,
             .heartbeat_interval = config.fix.heartbeat_interval,
         };
-        fix_gateway = std::make_unique<exchange::fix::FixGateway>(fix_cfg, asset_translator,
-                                                                  request_queue, logger);
+        fix_gateway = std::make_unique<exchange::fix::FixGateway>(
+            fix_cfg, asset_translator, request_queue, response_queue, user_mgr, logger);
         if (!fix_gateway->start()) {
             logger.error("Failed to start FIX gateway");
         }

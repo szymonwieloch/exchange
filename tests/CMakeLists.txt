@@ -36,6 +36,7 @@ target_include_directories(exchange_tests PRIVATE
 
 target_link_libraries(exchange_tests PRIVATE
     GTest::gtest_main
+    fixpp
     glaze::glaze
     type_safe
     Threads::Threads
