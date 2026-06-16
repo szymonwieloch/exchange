@@ -15,6 +15,7 @@
 
 #include "lib/exchange/definitions.h"
 #include "lib/exchange/fix/fix_helpers.hpp"
+#include "lib/exchange/user_mgr.h"
 #include "lib/utils/log.h"
 
 namespace exchange::fix {
@@ -39,7 +40,8 @@ struct SessionVisitor : public Fixpp::StaticVisitor<void> {
         }
         int64_t heartbeat = 0;
         Fixpp::tryGet<Fixpp::Tag::HeartBtInt>(logon, heartbeat);
-        session.onLogon(sender, target, static_cast<uint32_t>(heartbeat));
+        session.onLogon(sender, target, static_cast<uint32_t>(heartbeat),
+                        std::move(session.last_username_), std::move(session.last_password_));
     }
 
     void operator()(const Fixpp::v42::Header::Ref& /*header*/,
@@ -190,6 +192,8 @@ void FixSession::dispatchMessage(const char* frame, size_t size) {
     // so error handlers can reference them.
     last_msg_type_.clear();
     last_msg_seq_num_ = 0;
+    last_username_.clear();
+    last_password_.clear();
     {
         auto mt = extractTag(frame, size, "35=");
         if (!mt.empty())
@@ -200,6 +204,12 @@ void FixSession::dispatchMessage(const char* frame, size_t size) {
             if (fc.ec != std::errc{})
                 last_msg_seq_num_ = 0;
         }
+        auto un = extractTag(frame, size, "553=");
+        if (!un.empty())
+            last_username_ = un;
+        auto pw = extractTag(frame, size, "554=");
+        if (!pw.empty())
+            last_password_ = pw;
     }
 
     SessionVisitor visitor(*this);
@@ -226,13 +236,28 @@ std::string_view FixSession::extractTag(const char* frame, size_t size, std::str
 }
 
 void FixSession::onLogon(const std::string& /*sender*/, const std::string& /*target*/,
-                         uint32_t heartbeat_secs) {
+                         uint32_t heartbeat_secs, std::string username, std::string password) {
+    // Validate credentials
+    auto opt_user = user_mgr_.checkUser(username, password);
+    if (!opt_user.has_value()) {
+        logger_.warn("FIX logon rejected: invalid credentials for '", utils::ShortString(username),
+                     "'");
+        sendLogout("Invalid username or password");
+        boost::system::error_code ec;
+        heartbeat_timer_.cancel(ec);
+        socket_.close(ec);
+        state_ = SessionState::Disconnected;
+        return;
+    }
+    user_id_ = *opt_user;
+
     if (heartbeat_secs > 0) {
         const_cast<FixSessionConfig&>(config_).heartbeat_interval =
             std::min(heartbeat_secs, config_.heartbeat_interval);
     }
     state_ = SessionState::LoggedOn;
-    logger_.info("FIX session logged on (heartbeat=", config_.heartbeat_interval, "s)");
+    logger_.info("FIX session logged on (user=", type_safe::get(user_id_),
+                 " heartbeat=", config_.heartbeat_interval, "s)");
     sendLogon();
     resetHeartbeatTimer();
 }
@@ -284,22 +309,9 @@ void FixSession::onNewOrderSingle(const Fixpp::v42::Message::NewOrderSingle::Ref
         return;
     }
 
-    // --- Resolve user ---
-
-    std::string cl_ord_id;
-    Fixpp::tryGet<Fixpp::Tag::ClOrdID>(order, cl_ord_id);
-
-    UserId user_id = UserId::INVALID;
-    if (!cl_ord_id.empty()) {
-        uint32_t hash = 0;
-        for (char c : cl_ord_id)
-            hash = hash * 31 + static_cast<uint32_t>(static_cast<unsigned char>(c));
-        user_id = UserId{hash % 1024 + 1};
-    }
-
     // --- Parse and validate ---
 
-    auto result = details::parseNewOrderSingle(order, user_id, translator_);
+    auto result = details::parseNewOrderSingle(order, user_id_, translator_);
     if (!result.has_value()) {
         logger_.warn("FIX NewOrderSingle: ", result.error());
         // Determine BusinessRejectReason: 5 = Required tag missing, 0 = Other
@@ -333,19 +345,9 @@ void FixSession::onOrderCancelRequest(const Fixpp::v42::Message::OrderCancelRequ
         return;
     }
 
-    // --- Resolve user ---
-
-    std::string cl_ord_id;
-    Fixpp::tryGet<Fixpp::Tag::ClOrdID>(cancel, cl_ord_id);
-
-    uint32_t hash = 0;
-    for (char c : cl_ord_id)
-        hash = hash * 31 + static_cast<uint32_t>(static_cast<unsigned char>(c));
-    const UserId user_id{hash % 1024 + 1};
-
     // --- Parse and validate ---
 
-    auto result = details::parseOrderCancelRequest(cancel, user_id, translator_);
+    auto result = details::parseOrderCancelRequest(cancel, user_id_, translator_);
     if (!result.has_value()) {
         logger_.warn("FIX OrderCancelRequest: ", result.error());
         const bool is_missing = (std::string_view{result.error()}.find("Required tag missing") !=

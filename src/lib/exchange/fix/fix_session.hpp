@@ -79,8 +79,9 @@ public:
 
     // --- Incoming message handlers (called by visitor) ---
 
-    /// Handles a Logon message.
-    void onLogon(const std::string& sender, const std::string& target, uint32_t heartbeat_secs);
+    /// Handles a Logon message. Validates credentials via UserManager.
+    void onLogon(const std::string& sender, const std::string& target, uint32_t heartbeat_secs,
+                 std::string username, std::string password);
     /// Handles a Heartbeat message.
     void onHeartbeat(const std::string& test_req_id);
     /// Handles a TestRequest message.
@@ -121,9 +122,14 @@ public:
 
     /// Cached MsgType from the currently-parsing frame (for error reporting).
     /// Public because the visitor (in an anonymous namespace) accesses it.
+    // TODO: try to remove those by switching to a different FIX library
     std::string last_msg_type_;
     /// Cached MsgSeqNum from the currently-parsing frame (for error reporting).
     uint64_t last_msg_seq_num_{0};
+    /// Cached Username from the currently-parsing Logon frame (tag 553).
+    std::string last_username_;
+    /// Cached Password from the currently-parsing Logon frame (tag 554).
+    std::string last_password_;
 
 private:
     void doRead();
@@ -166,6 +172,7 @@ private:
 
     /// Session state.
     SessionState state_ = SessionState::Connected;
+    UserId user_id_;
     bool writing_{false};
 
     /// Read buffer: stack-allocated, no heap in hot path.
