@@ -89,7 +89,9 @@ public:
     /// Handles an OrderCancelRequest message.
     void onOrderCancelRequest(const Fixpp::v42::Message::OrderCancelRequest::Ref& cancel);
     /// Handles any unhandled message type.
-    void onUnhandledMessage();
+    /// @param ref_seq_num  The MsgSeqNum from the incoming message header.
+    /// @param msg_type     The MsgType string of the unhandled message.
+    void onUnhandledMessage(uint64_t ref_seq_num, std::string_view msg_type);
 
     // --- Outgoing message builders ---
 
@@ -101,8 +103,20 @@ public:
     void sendHeartbeat(std::string_view test_req_id = {});
     /// Builds and sends a TestRequest message.
     void sendTestRequest();
-    /// Builds and sends a Reject message.
+    /// Builds and sends a Reject message (session-level, MsgType=3).
     void sendReject(uint64_t ref_seq_num, const char* text);
+
+    /// Builds and sends a BusinessMessageReject (application-level, MsgType=j).
+    /// @param ref_msg_type  The MsgType of the rejected message (e.g. "D", "F").
+    /// @param reason        FIX BusinessRejectReason code.
+    /// @param text          Human-readable explanation.
+    void sendBusinessReject(std::string_view ref_msg_type, int reason, std::string_view text = {});
+
+    /// Cached MsgType from the currently-parsing frame (for error reporting).
+    /// Public because the visitor (in an anonymous namespace) accesses it.
+    std::string last_msg_type_;
+    /// Cached MsgSeqNum from the currently-parsing frame (for error reporting).
+    uint64_t last_msg_seq_num_{0};
 
 private:
     void doRead();
@@ -121,7 +135,13 @@ private:
     size_t processBuffer(size_t total_bytes);
 
     /// Dispatches a single parsed FIX message frame to the appropriate handler.
+    /// On parse failure, sends a session-level Reject (MsgType=3).
     void dispatchMessage(const char* frame, size_t size);
+
+    /// Extracts a tag value from a raw FIX frame as a string_view.
+    /// Returns empty string_view if tag not found.
+    [[nodiscard]] static std::string_view extractTag(const char* frame, size_t size,
+                                                     std::string_view tag);
 
     // --- Header helpers ---
     /// Builds a standard header with the current outgoing sequence number.
