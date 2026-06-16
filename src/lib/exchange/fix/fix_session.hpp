@@ -9,13 +9,24 @@
 ///
 /// Uses fixpp for all FIX tag definitions (Fixpp::Tag::*::Id).
 
+#include <array>
 #include <atomic>
 #include <boost/asio.hpp>
 #include <boost/asio/steady_timer.hpp>
 #include <chrono>
+#include <cstdint>
+#include <ctime>
 #include <memory>
 #include <string>
 #include <string_view>
+
+// Suppress deprecated warnings from fixpp (std::aligned_storage in C++23)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#include <fixpp/versions/v42.h>
+#include <fixpp/visitor.h>
+#include <fixpp/writer.h>
+#pragma GCC diagnostic pop
 
 #include "lib/exchange/asset_translator.hpp"
 #include "lib/exchange/request.h"
@@ -59,6 +70,40 @@ public:
     /// Begins the asynchronous session lifecycle.
     void start();
 
+    // --- Incoming message handlers (called by visitor) ---
+
+    /// Handles a Logon message.
+    void onLogon(const std::string& sender, const std::string& target, uint32_t heartbeat_secs);
+    /// Handles a Heartbeat message.
+    void onHeartbeat(const std::string& test_req_id);
+    /// Handles a TestRequest message.
+    void onTestRequest(const std::string& test_req_id);
+    /// Handles a Logout message.
+    void onLogout();
+    /// Handles a ResendRequest (not fully supported — logs and disconnects).
+    void onResendRequest(uint64_t begin_seq, uint64_t end_seq);
+    /// Handles a SequenceReset message.
+    void onSequenceReset(uint64_t new_seq);
+    /// Handles a NewOrderSingle message.
+    void onNewOrderSingle(const Fixpp::v42::Message::NewOrderSingle::Ref& order);
+    /// Handles an OrderCancelRequest message.
+    void onOrderCancelRequest(const Fixpp::v42::Message::OrderCancelRequest::Ref& cancel);
+    /// Handles any unhandled message type.
+    void onUnhandledMessage();
+
+    // --- Outgoing message builders ---
+
+    /// Builds and sends a Logon message.
+    void sendLogon();
+    /// Builds and sends a Logout message with optional text.
+    void sendLogout(std::string_view text = {});
+    /// Builds and sends a Heartbeat message, optionally echoing a TestReqID.
+    void sendHeartbeat(std::string_view test_req_id = {});
+    /// Builds and sends a TestRequest message.
+    void sendTestRequest();
+    /// Builds and sends a Reject message.
+    void sendReject(uint64_t ref_seq_num, const char* text);
+
 private:
     void doRead();
     void onRead(const boost::system::error_code& ec, size_t bytes_transferred);
@@ -69,6 +114,18 @@ private:
     void onHeartbeatTimeout(const boost::system::error_code& ec);
 
     void fail(const boost::system::error_code& ec, const char* context);
+
+    // --- Message processing ---
+    /// Processes accumulated bytes in the read buffer, extracting complete FIX
+    /// messages delimited by SOH.  Returns the number of bytes consumed.
+    size_t processBuffer(size_t total_bytes);
+
+    /// Dispatches a single parsed FIX message frame to the appropriate handler.
+    void dispatchMessage(const char* frame, size_t size);
+
+    // --- Header helpers ---
+    /// Builds a standard header with the current outgoing sequence number.
+    [[nodiscard]] Fixpp::v42::Header buildHeader() const;
 
     boost::asio::ip::tcp::socket socket_;
     const AssetTranslator& translator_;
@@ -82,6 +139,18 @@ private:
     /// Session state.
     SessionState state_ = SessionState::Connected;
     bool writing_{false};
+
+    /// Read buffer: stack-allocated, no heap in hot path.
+    static constexpr size_t kReadBufferSize = 4096;
+    std::array<char, kReadBufferSize> read_buffer_{};
+    size_t read_buffer_pos_{0};
+
+    /// Pending write data.
+    std::string pending_write_;
+
+    /// FIX sequence numbers.
+    uint64_t seq_num_in_{1};   ///< Expected incoming sequence number.
+    uint64_t seq_num_out_{1};  ///< Next outgoing sequence number.
 };
 
 }  // namespace exchange::fix
