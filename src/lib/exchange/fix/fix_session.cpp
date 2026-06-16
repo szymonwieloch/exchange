@@ -124,9 +124,7 @@ void serializeAndSend(const Fixpp::v42::Header& header, const Message& msg, uint
 }  // namespace
 
 FixSession::~FixSession() {
-    boost::system::error_code ec;
-    heartbeat_timer_.cancel(ec);
-    socket_.close(ec);
+    close();
 }
 
 void FixSession::start() {
@@ -233,10 +231,7 @@ void FixSession::onLogon(const std::string& /*sender*/, const std::string& /*tar
         logger_.warn("FIX logon rejected: invalid credentials for '", utils::ShortString(username),
                      "'");
         sendLogout("Invalid username or password");
-        boost::system::error_code ec;
-        heartbeat_timer_.cancel(ec);
-        socket_.close(ec);
-        state_ = SessionState::Disconnected;
+        close();
         return;
     }
     user_id_ = *opt_user;
@@ -266,19 +261,13 @@ void FixSession::onTestRequest(const std::string& test_req_id) {
 void FixSession::onLogout() {
     logger_.info("FIX Logout received");
     sendLogout();
-    boost::system::error_code ec;
-    heartbeat_timer_.cancel(ec);
-    socket_.close(ec);
-    state_ = SessionState::Disconnected;
+    close();
 }
 
 void FixSession::onResendRequest(uint64_t /*begin_seq*/, uint64_t /*end_seq*/) {
     logger_.warn("FIX ResendRequest received (not supported), disconnecting");
     sendLogout("ResendRequest not supported");
-    boost::system::error_code ec;
-    heartbeat_timer_.cancel(ec);
-    socket_.close(ec);
-    state_ = SessionState::Disconnected;
+    close();
 }
 
 void FixSession::onSequenceReset(uint64_t new_seq) {
@@ -485,9 +474,7 @@ void FixSession::onHeartbeatTimeout(const boost::system::error_code& ec) {
         resetHeartbeatTimer();
     } else {
         logger_.info("FIX session timeout (no logon received)");
-        boost::system::error_code ignored;
-        socket_.close(ignored);
-        state_ = SessionState::Disconnected;
+        close();
     }
 }
 
@@ -495,10 +482,7 @@ void FixSession::fail(const boost::system::error_code& ec, const char* context) 
     if (ec == boost::asio::error::operation_aborted)
         return;
     logger_.error("FIX session error (", context, "): ", utils::ShortString(ec.message()));
-    boost::system::error_code ignored;
-    heartbeat_timer_.cancel(ignored);
-    socket_.close(ignored);
-    state_ = SessionState::Disconnected;
+    close();
 }
 
 }  // namespace exchange::fix

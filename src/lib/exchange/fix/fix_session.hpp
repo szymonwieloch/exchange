@@ -149,6 +149,13 @@ private:
     [[nodiscard]] static std::string_view extractTag(const char* frame, size_t size,
                                                      std::string_view tag);
 
+    void close() noexcept {
+        boost::system::error_code ec;
+        heartbeat_timer_.cancel(ec);
+        socket_.close(ec);
+        state_ = SessionState::Disconnected;
+    }
+
     // --- Header helpers ---
     /// Builds a standard header with the current outgoing sequence number.
     [[nodiscard]] Fixpp::v42::Header buildHeader() const;
