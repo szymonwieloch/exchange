@@ -10,6 +10,7 @@
 #include <thread>
 
 #include "queue.h"
+#include "short_string.h"
 #include "thread_utils.h"
 #include "time.h"
 
@@ -108,56 +109,6 @@ inline std::ostream &operator<<(std::ostream &os, const Hdr &hdr) {
         os << "\nERRO ";
     os << hdr.timestamp << ": ";
     return os;
-}
-
-/// Stores a short (<= 8 byte) string inline, avoiding heap allocation.
-///
-/// Used as a drop-in replacement for `std::string` in `LogElement` when
-/// the payload is known to be short (e.g. order IDs, symbols, status codes).
-/// The stored string is always null-terminated.
-class ShortString {
-public:
-    /// Copies up to 8 characters from @p s.  If @p s is longer, only the
-    /// first 8 bytes are stored (the string is truncated).
-    explicit ShortString(const std::string &s) noexcept {
-        const auto n = s.size() < 8 ? s.size() : 8;
-        for (size_t i = 0; i < n; ++i)
-            val[i] = s[i];
-        if (n < 8)
-            val[n] = '\0';
-    }
-
-    /// Copies up to 8 characters from the null-terminated @p s.
-    explicit ShortString(const char *s) noexcept {
-        size_t i = 0;
-        for (; i < 8 && s[i] != '\0'; ++i)
-            val[i] = s[i];
-        if (i < 8)
-            val[i] = '\0';
-    }
-
-    /// Returns a pointer to the stored null-terminated data.
-    [[nodiscard]] const char *data() const noexcept { return val.data(); }
-
-    /// Returns the length of the stored string (0–8).
-    [[nodiscard]] size_t size() const noexcept {
-        // val[7] may be non-null when the string is exactly 8 chars.
-        for (size_t i = 0; i < 8; ++i)
-            if (val[i] == '\0')
-                return i;
-        return 8;
-    }
-
-    [[nodiscard]] std::string_view view() const noexcept {
-        return std::string_view(val.data(), val.size());
-    }
-
-private:
-    std::array<char, 8> val{};  ///< Inline storage, zero-initialised.
-};
-
-inline std::ostream &operator<<(std::ostream &os, const ShortString &str) {
-    return os << str.view();
 }
 
 /// A single element in the log queue — either a level header or a user-supplied

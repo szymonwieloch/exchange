@@ -127,6 +127,9 @@ public:
     /// Cached MsgSeqNum from the currently-parsing frame (for error reporting).
     uint64_t last_msg_seq_num_{0};
 
+    /// Returns the authenticated UserId, or INVALID if not yet logged on.
+    [[nodiscard]] UserId getUserId() const noexcept { return user_id_; }
+
 private:
     void doRead();
     void onRead(const boost::system::error_code& ec, size_t bytes_transferred);

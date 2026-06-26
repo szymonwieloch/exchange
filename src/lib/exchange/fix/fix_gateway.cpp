@@ -43,8 +43,8 @@ bool FixGateway::start() {
     boost::asio::ip::tcp::resolver resolver(io_context_);
     const auto endpoints = resolver.resolve(config_.bind_address, std::to_string(config_.port), ec);
     if (ec) {
-        logger_.error("FIX gateway: failed to resolve ", utils::ShortString(config_.bind_address),
-                      ":", config_.port, " — ", utils::ShortString(ec.message()));
+        logger_.error("FIX gateway: failed to resolve ", utils::ShortString::shorten(config_.bind_address),
+                      ":", config_.port, " — ", utils::ShortString::shorten(ec.message()));
         running_ = false;
         return false;
     }
@@ -53,7 +53,7 @@ bool FixGateway::start() {
     const auto& endpoint = *endpoints.begin();
     acceptor_.open(boost::asio::ip::tcp::v4(), ec);
     if (ec) {
-        logger_.error("FIX gateway: failed to open acceptor — ", utils::ShortString(ec.message()));
+        logger_.error("FIX gateway: failed to open acceptor — ", utils::ShortString::shorten(ec.message()));
         running_ = false;
         return false;
     }
@@ -61,22 +61,22 @@ bool FixGateway::start() {
     acceptor_.set_option(boost::asio::ip::tcp::acceptor::reuse_address(true), ec);
     acceptor_.bind(endpoint, ec);
     if (ec) {
-        logger_.error("FIX gateway: failed to bind to ", utils::ShortString(config_.bind_address),
-                      ":", config_.port, " — ", utils::ShortString(ec.message()));
+        logger_.error("FIX gateway: failed to bind to ", utils::ShortString::shorten(config_.bind_address),
+                      ":", config_.port, " — ", utils::ShortString::shorten(ec.message()));
         running_ = false;
         return false;
     }
 
     acceptor_.listen(boost::asio::socket_base::max_listen_connections, ec);
     if (ec) {
-        logger_.error("FIX gateway: failed to listen — ", utils::ShortString(ec.message()));
+        logger_.error("FIX gateway: failed to listen — ", utils::ShortString::shorten(ec.message()));
         running_ = false;
         return false;
     }
 
-    logger_.info("FIX gateway listening on ", utils::ShortString(config_.bind_address), ":",
-                 config_.port, " (sender=", utils::ShortString(config_.sender_comp_id),
-                 ", target=", utils::ShortString(config_.target_comp_id), ")");
+    logger_.info("FIX gateway listening on ", utils::ShortString::shorten(config_.bind_address), ":",
+                 config_.port, " (sender=", utils::ShortString::shorten(config_.sender_comp_id),
+                 ", target=", utils::ShortString::shorten(config_.target_comp_id), ")");
 
     // Launch the thread pool
     const auto num_threads = (config_.num_threads > 0)
@@ -146,14 +146,14 @@ void FixGateway::onAccept(const boost::system::error_code& ec,
         if (ec == boost::asio::error::operation_aborted) {
             return;  // Gateway is shutting down
         }
-        logger_.error("FIX gateway accept error: ", utils::ShortString(ec.message()));
+        logger_.error("FIX gateway accept error: ", utils::ShortString::shorten(ec.message()));
         // Continue accepting despite errors
         doAccept();
         return;
     }
 
     logger_.info("FIX gateway: accepted connection from ",
-                 utils::ShortString(socket.remote_endpoint().address().to_string()), ":",
+                 utils::ShortString::shorten(socket.remote_endpoint().address().to_string()), ":",
                  socket.remote_endpoint().port());
 
     // // Create and start a new FixSession
@@ -174,7 +174,7 @@ void FixGateway::processResponses(const std::atomic<bool>& is_running) noexcept 
         }
 
         // Find the session that originated this response.
-        auto session = sessions_.find(resp->session_id, resp->user_id);
+        auto session = sessions_.find(resp->session_id);
         if (!session) {
             logger_.warn("Skipping response because session was not found, session=",
                          type_safe::get(resp->session_id), " user=", type_safe::get(resp->user_id));

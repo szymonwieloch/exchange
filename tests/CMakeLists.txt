@@ -23,6 +23,7 @@ add_executable(exchange_tests
     test_metrics.cpp
     test_orders_at_price.cpp
     test_queue.cpp
+    test_short_string.cpp
     test_thread.cpp
     test_time.cpp
     test_user_orders.cpp

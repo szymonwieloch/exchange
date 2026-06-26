@@ -101,4 +101,6 @@ enum class Side : int8_t { INVALID = 0, BUY = 1, SELL = -1 };
 namespace std {
 template <>
 struct hash<exchange::SessionId> : type_safe::hashable<exchange::SessionId> {};
+template <>
+struct hash<exchange::UserId> : type_safe::hashable<exchange::UserId> {};
 }  // namespace std

@@ -138,7 +138,7 @@ void FixSession::close() noexcept {
 
 void FixSession::start() {
     logger_.info("FIX session connected from ",
-                 utils::ShortString(socket_.remote_endpoint().address().to_string()), ":",
+                 utils::ShortString::shorten(socket_.remote_endpoint().address().to_string()), ":",
                  socket_.remote_endpoint().port());
     resetHeartbeatTimer();
     doRead();
@@ -156,7 +156,7 @@ void FixSession::doRead() {
 void FixSession::onRead(const boost::system::error_code& ec, size_t bytes_transferred) {
     if (ec) {
         if (ec == boost::asio::error::eof || ec == boost::asio::error::connection_reset) {
-            logger_.info("FIX session disconnected: ", utils::ShortString(ec.message()));
+            logger_.info("FIX session disconnected: ", utils::ShortString::shorten(ec.message()));
         } else {
             fail(ec, "read");
         }
@@ -209,7 +209,7 @@ void FixSession::dispatchMessage(const char* frame, size_t size) {
     auto result = Fixpp::visit(frame, size, visitor, SessionVisitRules{});
     if (!result.isOk()) {
         const auto& err = result.unwrapErr();
-        logger_.warn("FIX parse error: ", utils::ShortString(err.asString()), " at column ",
+        logger_.warn("FIX parse error: ", utils::ShortString::shorten(err.asString()), " at column ",
                      err.column());
         sendReject(last_msg_seq_num_, err.asString().c_str());
     }
@@ -237,13 +237,14 @@ void FixSession::onLogon(const std::string& /*sender*/, const std::string& /*tar
     // Validate credentials
     auto opt_user = user_mgr_.checkUser(username, password);
     if (!opt_user.has_value()) {
-        logger_.warn("FIX logon rejected: invalid credentials for '", utils::ShortString(username),
+        logger_.warn("FIX logon rejected: invalid credentials for '", utils::ShortString::shorten(username),
                      "'");
         sendLogout("Invalid username or password");
         close();
         return;
     }
     user_id_ = *opt_user;
+    sessions_.registerUser(id_, user_id_);
 
     if (heartbeat_secs > 0) {
         const_cast<FixSessionConfig&>(config_).heartbeat_interval =
@@ -288,7 +289,7 @@ void FixSession::onUnhandledMessage(uint64_t /*ref_seq_num*/, std::string_view m
     auto mt = extractTag(msgView.data(), msgView.size(), "35=");
     std::string_view msgType = mt.empty() ? std::string_view{"?"} : mt;
     std::string mts{msgType};
-    logger_.warn("FIX unhandled message type: ", utils::ShortString(mts));
+    logger_.warn("FIX unhandled message type: ", utils::ShortString::shorten(mts));
     // BusinessRejectReason 3 = Unsupported Message Type
     sendBusinessReject(msgType, 3, "Unsupported message type");
 }
@@ -436,7 +437,7 @@ void FixSession::sendBusinessReject(std::string_view ref_msg_type, int reason,
     serializeAndSend(header, bmr, seq_num_out_, pending_write_);
     doWrite();
     std::string rt{ref_msg_type};
-    logger_.debug("FIX BusinessMessageReject sent (refType=", utils::ShortString(rt),
+    logger_.debug("FIX BusinessMessageReject sent (refType=", utils::ShortString::shorten(rt),
                   " reason=", reason, ")");
 }
 
@@ -490,7 +491,7 @@ void FixSession::onHeartbeatTimeout(const boost::system::error_code& ec) {
 void FixSession::fail(const boost::system::error_code& ec, const char* context) {
     if (ec == boost::asio::error::operation_aborted)
         return;
-    logger_.error("FIX session error (", context, "): ", utils::ShortString(ec.message()));
+    logger_.error("FIX session error (", context, "): ", utils::ShortString::shorten(ec.message()));
     close();
 }
 
