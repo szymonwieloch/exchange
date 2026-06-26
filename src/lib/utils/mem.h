@@ -37,6 +37,11 @@ public:
         }
     }
 
+    MemPool(const MemPool &) = delete;
+    MemPool &operator=(const MemPool &) = delete;
+    MemPool(MemPool &&) = default;
+    MemPool &operator=(MemPool &&) = default;
+
     /// Destroys any objects that are still allocated.
     ~MemPool() noexcept {
         // Sort the free stack so we can find allocated indices by exclusion.
@@ -112,6 +117,7 @@ public:
 private:
     /// Raw aligned storage for a T.
     struct ObjectBlock {
+        // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays,modernize-avoid-c-arrays)
         alignas(T) unsigned char storage[sizeof(T)];
 #ifndef NDEBUG
         bool is_free = true;
