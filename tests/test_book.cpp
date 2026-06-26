@@ -587,6 +587,7 @@ TEST_F(OrderBookTest, FifoMatchingWithinSamePriceLevel) {
 // ===================================================================
 
 TEST_F(OrderBookTest, AddDuplicateOrderIdOverwritesInRelease) {
+#ifdef NDEBUG
     auto book = makeBook();
 
     EXPECT_TRUE(
@@ -610,6 +611,9 @@ TEST_F(OrderBookTest, AddDuplicateOrderIdOverwritesInRelease) {
     ASSERT_GE(mds.size(), 1);
     EXPECT_EQ(mds[0].type_, MDUpdateType::ADD);
     EXPECT_EQ(mds[0].qty, Quantity{5});
+#else
+    GTEST_SKIP() << "Test only valid in Release mode (assert() guards duplicate insert in Debug)";
+#endif
 }
 
 // ===================================================================

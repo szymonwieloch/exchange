@@ -32,7 +32,8 @@ jobs:
           apt-get update && apt-get install -y --no-install-recommends \
             cmake ninja-build git \
             libboost-program-options-dev \
-            gperf
+            gperf \
+            libstdc++-14-dev
 
       - name: Configure CMake
         run: |
@@ -43,9 +44,9 @@ jobs:
 
       - name: Run clang-tidy
         run: |
-          # Run on all source files
+          # Configuration in .clang-tidy (checks, header filter, warnings-as-errors)
           find src/ tests/ -name '*.cpp' -o -name '*.h' \
-            | xargs clang-tidy -p build --warnings-as-errors='*'
+            | xargs clang-tidy -p build
 
   # ── Build & Test ─────────────────────────────────────────────
   build-and-test:

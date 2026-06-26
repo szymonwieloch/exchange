@@ -178,6 +178,7 @@ TEST(SPSCQueueTest, SingleProducerSingleConsumerThreaded) {
         while (consumed < kNumItems) {
             const int* val = queue.getNextToRead();
             if (val == nullptr) {
+                std::this_thread::yield();  // let the producer run
                 continue;
             }
             EXPECT_EQ(*val, consumed);

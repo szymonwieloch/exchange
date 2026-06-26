@@ -117,7 +117,7 @@ run_lint() {
         return 0
     fi
 
-    if echo "$files" | xargs "$tidy" -p "$lint_build_dir" --warnings-as-errors='*' 2>&1; then
+    if echo "$files" | xargs "$tidy" -p "$lint_build_dir" 2>&1; then
         print_pass "clang-tidy found no issues."
         return 0
     else
