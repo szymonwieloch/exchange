@@ -212,7 +212,14 @@ TEST(ShortStringTest, MoveAssignmentPreservesValue) {
 
 TEST(ShortStringTest, SelfCopyAssignmentIsSafe) {
     auto s = ShortString::shorten("SELF");
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wself-assign-overloaded"
+#endif
     s = s;  // self copy-assign
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
     EXPECT_EQ(s.view(), "SELF");
 }
 

@@ -13,6 +13,19 @@ elseif(MSVC)
     add_compile_options(/W4 /WX)
 endif()
 
+# Clang + libstdc++ compatibility: Clang reports __cpp_concepts=201907L
+# but libstdc++'s <expected> header guards std::expected behind
+# __cpp_concepts >= 202002L.  Force the macro so <expected> works.
+# Also suppress warnings that Clang emits but GCC does not:
+#   - deprecated-declarations: Boost.Beast uses std::aligned_storage
+#   - braced-scalar-init: gperf-generated code uses brace init for scalars
+#   - unused-private-field: fields reserved for future use
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    add_compile_options(-Wno-builtin-macro-redefined -Wno-deprecated-declarations
+        -Wno-braced-scalar-init -Wno-unused-private-field
+        -U__cpp_concepts -D__cpp_concepts=202002L)
+endif()
+
 # Enable testing
 enable_testing()
 
@@ -113,7 +126,7 @@ endif()
 
 # fixpp is header-only; create an INTERFACE target for clean dependency management.
 add_library(fixpp INTERFACE)
-target_include_directories(fixpp INTERFACE
+target_include_directories(fixpp SYSTEM INTERFACE
     ${fixpp_SOURCE_DIR}/include
 )
 

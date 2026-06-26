@@ -33,8 +33,7 @@ public:
         if (!running_.compare_exchange_strong(expected, true)) {
             return false;
         }
-        thread_ = std::thread(
-            [this, cb = std::forward<T>(callback)]() { run(std::forward<decltype(cb)>(cb)); });
+        thread_ = std::thread([this, cb = std::forward<T>(callback)]() { this->run(cb); });
         return true;
     }
 
