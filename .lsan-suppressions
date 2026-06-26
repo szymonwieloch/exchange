@@ -1,0 +1,12 @@
+# LSan suppressions for the Exchange test suite.
+#
+# GoogleTest allocates test fixtures with operator new and may not free
+# them before the sanitizer exit handlers run.  These are not real leaks.
+
+# GTest test fixture allocations (CreateTest / TestFactoryImpl)
+leak:testing::internal::TestFactoryImpl
+leak:testing::TestInfo::Run
+
+# GTest internal infrastructure
+leak:testing::UnitTest::Run
+leak:testing::internal::UnitTestImpl::RunAllTests

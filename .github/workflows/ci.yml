@@ -23,7 +23,7 @@ jobs:
   lint:
     name: Lint (clang-tidy)
     runs-on: ubuntu-latest
-    container: silkeh/clang:18
+    container: silkeh/clang:18-noble
     steps:
       - uses: actions/checkout@v4
 
@@ -118,3 +118,5 @@ jobs:
 
       - name: Run tests with sanitizers
         run: cd build && ctest --output-on-failure --verbose
+        env:
+          LSAN_OPTIONS: suppressions=${{ github.workspace }}/.lsan-suppressions

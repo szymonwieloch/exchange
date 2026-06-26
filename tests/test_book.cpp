@@ -41,7 +41,8 @@ using exchange::UserId;
 //  Test Fixture
 // ===================================================================
 
-/// Provides a Logger (heap-allocated, leaked to avoid destructor issues),
+/// Provides a Logger (stored by value — its destructor is safe as long as start()
+/// is never called, since stop() guards on the running flag).
 /// response queue, and market-data update queue sized for the test.
 class OrderBookTest : public ::testing::Test {
 protected:
@@ -49,17 +50,17 @@ protected:
     /// Each order add/cancel/match can emit multiple responses and MD updates.
     static constexpr size_t kQueueCapacity = 1024;
 
-    // Logger is heap-allocated and intentionally leaked — its destructor
-    // attempts to join a thread that is never created (TODO in log.h).
-    // NOLINTNEXTLINE(cppcoreguidelines-owning-memory)
-    utils::Logger *logger = new utils::Logger("test_book.log", utils::LogLevel::DEBUG);
+    // Logger owns its queue (128 MB) — properly destroyed when the fixture
+    // is torn down.  start() is never called so stop() / ~Logger() are no-ops
+    // for the consumer thread.
+    utils::Logger logger{"test_book.log", utils::LogLevel::DEBUG};
     ResponseLFQueue responses{kQueueCapacity};
     MDLFQueue market_updates{kQueueCapacity};
     exchange::MetricRegistry metrics;
 
     /// Creates an OrderBook for Ticker 0 with the fixture's queues.
     OrderBook makeBook() {
-        return OrderBook{TickerId{0}, logger, &responses, &market_updates, metrics};
+        return OrderBook{TickerId{0}, &logger, &responses, &market_updates, metrics};
     }
 
     void SetUp() override {
@@ -113,7 +114,7 @@ protected:
 // ===================================================================
 
 TEST_F(OrderBookTest, ConstructDoesNotThrow) {
-    EXPECT_NO_THROW(OrderBook(TickerId{0}, logger, &responses, &market_updates, metrics));
+    EXPECT_NO_THROW(OrderBook(TickerId{0}, &logger, &responses, &market_updates, metrics));
 }
 
 TEST_F(OrderBookTest, NewBookHasNoPendingMessages) {
@@ -920,7 +921,7 @@ TEST_F(OrderBookTest, NonCrossingSpreadBothSidesRest) {
 // ===================================================================
 
 TEST_F(OrderBookTest, HashMapPrepopulatesAllTickers) {
-    OrderBookHashMap map(logger, &responses, &market_updates, metrics);
+    OrderBookHashMap map(&logger, &responses, &market_updates, metrics);
 
     for (uint16_t i = 0; i < exchange::MAX_TICKERS; ++i) {
         auto *book = map.find(TickerId{i});
@@ -929,7 +930,7 @@ TEST_F(OrderBookTest, HashMapPrepopulatesAllTickers) {
 }
 
 TEST_F(OrderBookTest, DifferentTickersAreIsolated) {
-    OrderBookHashMap map(logger, &responses, &market_updates, metrics);
+    OrderBookHashMap map(&logger, &responses, &market_updates, metrics);
 
     auto *book0 = map.find(TickerId{0});
     auto *book1 = map.find(TickerId{1});
@@ -955,7 +956,7 @@ TEST_F(OrderBookTest, DifferentTickersAreIsolated) {
 }
 
 TEST_F(OrderBookTest, SameTickerCrossBookMatching) {
-    OrderBookHashMap map(logger, &responses, &market_updates, metrics);
+    OrderBookHashMap map(&logger, &responses, &market_updates, metrics);
 
     auto *book = map.find(TickerId{3});
 

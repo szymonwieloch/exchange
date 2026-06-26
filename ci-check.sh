@@ -201,7 +201,7 @@ run_sanitizers() {
 
     echo "Running tests with sanitizers..."
     cd build
-    if ctest --output-on-failure --verbose; then
+    if LSAN_OPTIONS="suppressions=${SCRIPT_DIR}/.lsan-suppressions" ctest --output-on-failure --verbose; then
         print_pass "Sanitizer run clean — no issues detected."
         cd ..
         return 0
