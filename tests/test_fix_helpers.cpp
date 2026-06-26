@@ -202,10 +202,6 @@ TEST(ToRequestTypeTest, InvalidChars) {
 
 // ===================================================================
 //  parseNewOrderSingle — success cases
-//
-//  Note: AssetTranslator has been removed; symbol resolution is currently
-//  a TODO stub that always returns TickerId::INVALID.  All parse calls
-//  will fail with "Unknown symbol" until symbol resolution is re-wired.
 // ===================================================================
 
 TEST(ParseNewOrderSingleTest, ValidMarketOrderWithoutPrice) {
@@ -215,8 +211,14 @@ TEST(ParseNewOrderSingleTest, ValidMarketOrderWithoutPrice) {
 
     withParsedNewOrderSingle(raw, [&](const auto& order) {
         auto result = exchange::fix::details::parseNewOrderSingle(order, user);
-        ASSERT_FALSE(result.has_value());
-        EXPECT_STREQ(result.error(), "Unknown symbol");
+        ASSERT_TRUE(result.has_value());
+        const Request& req = *result;
+        EXPECT_EQ(req.type, RequestType::NEW);
+        EXPECT_EQ(req.user_id, user);
+        EXPECT_EQ(req.ticker_id, TickerId{0});  // AAPL
+        EXPECT_EQ(req.side, Side::BUY);
+        EXPECT_EQ(req.price, Price::INVALID);
+        EXPECT_EQ(req.qty, Quantity{100});
     });
 }
 
@@ -228,8 +230,14 @@ TEST(ParseNewOrderSingleTest, ValidLimitOrderWithPrice) {
 
     withParsedNewOrderSingle(raw, [&](const auto& order) {
         auto result = exchange::fix::details::parseNewOrderSingle(order, user);
-        ASSERT_FALSE(result.has_value());
-        EXPECT_STREQ(result.error(), "Unknown symbol");
+        ASSERT_TRUE(result.has_value());
+        const Request& req = *result;
+        EXPECT_EQ(req.type, RequestType::NEW);
+        EXPECT_EQ(req.user_id, user);
+        EXPECT_EQ(req.ticker_id, TickerId{1});  // MSFT
+        EXPECT_EQ(req.side, Side::SELL);
+        EXPECT_EQ(req.price, Price{12550});  // 125.50 * 100
+        EXPECT_EQ(req.qty, Quantity{50});
     });
 }
 
@@ -240,8 +248,14 @@ TEST(ParseNewOrderSingleTest, BuyLimitOrder) {
 
     withParsedNewOrderSingle(raw, [&](const auto& order) {
         auto result = exchange::fix::details::parseNewOrderSingle(order, user);
-        ASSERT_FALSE(result.has_value());
-        EXPECT_STREQ(result.error(), "Unknown symbol");
+        ASSERT_TRUE(result.has_value());
+        const Request& req = *result;
+        EXPECT_EQ(req.type, RequestType::NEW);
+        EXPECT_EQ(req.user_id, user);
+        EXPECT_EQ(req.ticker_id, TickerId{0});  // AAPL
+        EXPECT_EQ(req.side, Side::BUY);
+        EXPECT_EQ(req.price, Price{9900});  // 99.00 * 100
+        EXPECT_EQ(req.qty, Quantity{200});
     });
 }
 
@@ -252,8 +266,14 @@ TEST(ParseNewOrderSingleTest, LargeQuantityAndPrice) {
 
     withParsedNewOrderSingle(raw, [&](const auto& order) {
         auto result = exchange::fix::details::parseNewOrderSingle(order, user);
-        ASSERT_FALSE(result.has_value());
-        EXPECT_STREQ(result.error(), "Unknown symbol");
+        ASSERT_TRUE(result.has_value());
+        const Request& req = *result;
+        EXPECT_EQ(req.type, RequestType::NEW);
+        EXPECT_EQ(req.user_id, user);
+        EXPECT_EQ(req.ticker_id, TickerId{0});  // AAPL
+        EXPECT_EQ(req.side, Side::BUY);
+        EXPECT_EQ(req.price, Price{9999999});  // 99999.99 * 100
+        EXPECT_EQ(req.qty, Quantity{999999});
     });
 }
 
@@ -292,7 +312,7 @@ TEST(ParseNewOrderSingleTest, MissingSide) {
     withParsedNewOrderSingle(raw, [&](const auto& order) {
         auto result = exchange::fix::details::parseNewOrderSingle(order, user);
         ASSERT_FALSE(result.has_value());
-        EXPECT_STREQ(result.error(), "Unknown symbol");  // symbol check fails first
+        EXPECT_STREQ(result.error(), "Required tag missing: Side (54)");
     });
 }
 
@@ -303,7 +323,7 @@ TEST(ParseNewOrderSingleTest, InvalidSide) {
     withParsedNewOrderSingle(raw, [&](const auto& order) {
         auto result = exchange::fix::details::parseNewOrderSingle(order, user);
         ASSERT_FALSE(result.has_value());
-        EXPECT_STREQ(result.error(), "Unknown symbol");  // symbol check fails first
+        EXPECT_STREQ(result.error(), "Invalid Side value");
     });
 }
 
@@ -314,7 +334,7 @@ TEST(ParseNewOrderSingleTest, MissingOrdType) {
     withParsedNewOrderSingle(raw, [&](const auto& order) {
         auto result = exchange::fix::details::parseNewOrderSingle(order, user);
         ASSERT_FALSE(result.has_value());
-        EXPECT_STREQ(result.error(), "Unknown symbol");  // symbol check fails first
+        EXPECT_STREQ(result.error(), "Required tag missing: OrdType (40)");
     });
 }
 
@@ -326,7 +346,7 @@ TEST(ParseNewOrderSingleTest, InvalidOrdType) {
     withParsedNewOrderSingle(raw, [&](const auto& order) {
         auto result = exchange::fix::details::parseNewOrderSingle(order, user);
         ASSERT_FALSE(result.has_value());
-        EXPECT_STREQ(result.error(), "Unknown symbol");  // symbol check fails first
+        EXPECT_STREQ(result.error(), "Unsupported OrderType");
     });
 }
 
@@ -337,7 +357,7 @@ TEST(ParseNewOrderSingleTest, MissingOrderQty) {
     withParsedNewOrderSingle(raw, [&](const auto& order) {
         auto result = exchange::fix::details::parseNewOrderSingle(order, user);
         ASSERT_FALSE(result.has_value());
-        EXPECT_STREQ(result.error(), "Unknown symbol");  // symbol check fails first
+        EXPECT_STREQ(result.error(), "Required tag missing: OrderQty (38)");
     });
 }
 
@@ -354,10 +374,6 @@ TEST(ParseNewOrderSingleTest, UnknownSymbolEmptyTranslator) {
 
 // ===================================================================
 //  parseOrderCancelRequest — success cases
-//
-//  Note: AssetTranslator has been removed; symbol resolution is currently
-//  a TODO stub that always returns TickerId::INVALID.  All parse calls
-//  will fail with "Unknown symbol" until symbol resolution is re-wired.
 // ===================================================================
 
 TEST(ParseOrderCancelRequestTest, ValidCancelBuy) {
@@ -366,8 +382,14 @@ TEST(ParseOrderCancelRequestTest, ValidCancelBuy) {
 
     withParsedOrderCancelRequest(raw, [&](const auto& cancel) {
         auto result = exchange::fix::details::parseOrderCancelRequest(cancel, user);
-        ASSERT_FALSE(result.has_value());
-        EXPECT_STREQ(result.error(), "Unknown symbol");
+        ASSERT_TRUE(result.has_value());
+        const Request& req = *result;
+        EXPECT_EQ(req.type, RequestType::CANCEL);
+        EXPECT_EQ(req.user_id, user);
+        EXPECT_EQ(req.ticker_id, TickerId{0});  // AAPL
+        EXPECT_EQ(req.side, Side::BUY);
+        EXPECT_EQ(req.price, Price::INVALID);
+        EXPECT_EQ(req.qty, Quantity::INVALID);
     });
 }
 
@@ -377,8 +399,14 @@ TEST(ParseOrderCancelRequestTest, ValidCancelSell) {
 
     withParsedOrderCancelRequest(raw, [&](const auto& cancel) {
         auto result = exchange::fix::details::parseOrderCancelRequest(cancel, user);
-        ASSERT_FALSE(result.has_value());
-        EXPECT_STREQ(result.error(), "Unknown symbol");
+        ASSERT_TRUE(result.has_value());
+        const Request& req = *result;
+        EXPECT_EQ(req.type, RequestType::CANCEL);
+        EXPECT_EQ(req.user_id, user);
+        EXPECT_EQ(req.ticker_id, TickerId{1});  // MSFT
+        EXPECT_EQ(req.side, Side::SELL);
+        EXPECT_EQ(req.price, Price::INVALID);
+        EXPECT_EQ(req.qty, Quantity::INVALID);
     });
 }
 
@@ -415,7 +443,7 @@ TEST(ParseOrderCancelRequestTest, MissingSide) {
     withParsedOrderCancelRequest(raw, [&](const auto& cancel) {
         auto result = exchange::fix::details::parseOrderCancelRequest(cancel, user);
         ASSERT_FALSE(result.has_value());
-        EXPECT_STREQ(result.error(), "Unknown symbol");  // symbol check fails first
+        EXPECT_STREQ(result.error(), "Required tag missing: Side (54)");
     });
 }
 
@@ -426,6 +454,6 @@ TEST(ParseOrderCancelRequestTest, InvalidSide) {
     withParsedOrderCancelRequest(raw, [&](const auto& cancel) {
         auto result = exchange::fix::details::parseOrderCancelRequest(cancel, user);
         ASSERT_FALSE(result.has_value());
-        EXPECT_STREQ(result.error(), "Unknown symbol");  // symbol check fails first
+        EXPECT_STREQ(result.error(), "Invalid Side value");
     });
 }

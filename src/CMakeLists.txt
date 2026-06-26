@@ -11,6 +11,7 @@ add_custom_command(
     OUTPUT ${GPERF_OUTPUT}
     COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/gen"
     COMMAND ${GPERF}
+        -g
         --language=C++
         --readonly-tables
         --compare-strncmp
@@ -18,8 +19,8 @@ add_custom_command(
         --class-name=TickersHash
         --output-file=${GPERF_OUTPUT}
         ${GPERF_INPUT}
-    COMMAND bash ${CMAKE_SOURCE_DIR}/cmake/fixup_gperf.sh ${GPERF_OUTPUT}
-    DEPENDS ${GPERF_INPUT} ${CMAKE_SOURCE_DIR}/cmake/fixup_gperf.sh
+    # COMMAND bash ${CMAKE_SOURCE_DIR}/cmake/fixup_gperf.sh ${GPERF_OUTPUT}
+    DEPENDS ${GPERF_INPUT}
     COMMENT "Generating perfect hash for ticker symbols (gperf)"
 )
 

@@ -6,8 +6,8 @@
 #include <cstdint>
 
 struct TickerEntry {
-    const char* name;
-    std::uint16_t id;
+    const char* name = "";
+    std::uint16_t id = 0xFFFF;  // TickerId::INVALID
 };
 %}
 struct TickerEntry;

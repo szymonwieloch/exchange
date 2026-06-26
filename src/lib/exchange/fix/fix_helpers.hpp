@@ -18,6 +18,7 @@
 #pragma GCC diagnostic pop
 
 #include "lib/exchange/request.h"
+#include "tickers_gperf.hpp"
 
 namespace exchange::fix::details {
 
@@ -93,7 +94,8 @@ namespace exchange::fix::details {
     if (!Fixpp::tryGet<Fixpp::Tag::Symbol>(order, symbol)) {
         return std::unexpected<const char*>("Required tag missing: Symbol (55)");
     }
-    const TickerId ticker = TickerId::INVALID;  // TODO
+    const auto* ticker_entry = TickersHash::in_word_set(symbol.c_str(), symbol.size());
+    const TickerId ticker = ticker_entry ? TickerId{ticker_entry->id} : TickerId::INVALID;
     if (ticker == TickerId::INVALID) {
         return std::unexpected<const char*>("Unknown symbol");
     }
@@ -164,7 +166,8 @@ namespace exchange::fix::details {
     if (!Fixpp::tryGet<Fixpp::Tag::Symbol>(cancel, symbol)) {
         return std::unexpected<const char*>("Required tag missing: Symbol (55)");
     }
-    const TickerId ticker = TickerId::INVALID;
+    const auto* ticker_entry = TickersHash::in_word_set(symbol.c_str(), symbol.size());
+    const TickerId ticker = ticker_entry ? TickerId{ticker_entry->id} : TickerId::INVALID;
     if (ticker == TickerId::INVALID) {
         return std::unexpected<const char*>("Unknown symbol");
     }
