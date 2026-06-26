@@ -13,13 +13,9 @@ namespace exchange::fix {
 /// after a successful Logon when the user identity is known.
 class FixSessions {
 public:
-    FixSessions(utils::Logger& logger, const AssetTranslator& translator,
-                RequestLFQueue& request_queue, UserManager& user_mgr, FixSessionConfig ses_cfg)
-        : logger_(logger),
-          translator_(translator),
-          request_queue_(request_queue),
-          user_mgr_(user_mgr),
-          ses_cfg_(ses_cfg) {}
+    FixSessions(utils::Logger& logger, RequestLFQueue& request_queue, UserManager& user_mgr,
+                FixSessionConfig ses_cfg)
+        : logger_(logger), request_queue_(request_queue), user_mgr_(user_mgr), ses_cfg_(ses_cfg) {}
 
     /// Looks up a session by its unique SessionId.
     std::shared_ptr<FixSession> find(SessionId sessionId) const noexcept {
@@ -44,8 +40,8 @@ public:
     /// Creates a new session and registers it by SessionId.
     std::shared_ptr<FixSession> create(boost::asio::ip::tcp::socket socket) {
         auto id = SessionId(next_id_++);
-        auto session = std::make_shared<FixSession>(id, std::move(socket), translator_, ses_cfg_,
-                                                    request_queue_, logger_, user_mgr_, *this);
+        auto session = std::make_shared<FixSession>(id, std::move(socket), ses_cfg_, request_queue_,
+                                                    logger_, user_mgr_, *this);
         std::lock_guard lock(mutex_);
         sessions_[id] = session;
         return session;
@@ -83,7 +79,6 @@ private:
     std::unordered_map<UserId, std::weak_ptr<FixSession>> user_sessions_;
     std::atomic<std::uint32_t> next_id_{0};
     utils::Logger& logger_;
-    const AssetTranslator& translator_;
     RequestLFQueue& request_queue_;
     UserManager& user_mgr_;
     FixSessionConfig ses_cfg_;

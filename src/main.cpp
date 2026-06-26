@@ -4,7 +4,6 @@
 #include <string_view>
 #include <vector>
 
-#include "lib/exchange/asset_translator.hpp"
 #include "lib/exchange/book.h"
 #include "lib/exchange/constants.h"
 #include "lib/exchange/definitions.h"
@@ -107,7 +106,6 @@ int main(int argc, char* argv[]) {
     exchange::UserManager user_mgr;
 
     // ── FIX gateway ──────────────────────────────────────────────────
-    exchange::AssetTranslator asset_translator(config.engine.tickers);
     // auto fix_request_queue = exchange::fix::FixRequestQueue(exchange::MAX_USER_UPDATES);
     std::unique_ptr<exchange::fix::FixGateway> fix_gateway;
 
@@ -122,8 +120,8 @@ int main(int argc, char* argv[]) {
             .heartbeat_interval = config.fix.heartbeat_interval,
             .response_thread_core = config.threading.response_thread_core,
         };
-        fix_gateway = std::make_unique<exchange::fix::FixGateway>(
-            fix_cfg, asset_translator, request_queue, response_queue, user_mgr, logger);
+        fix_gateway = std::make_unique<exchange::fix::FixGateway>(fix_cfg, request_queue,
+                                                                  response_queue, user_mgr, logger);
         if (!fix_gateway->start()) {
             logger.error("Failed to start FIX gateway");
         }

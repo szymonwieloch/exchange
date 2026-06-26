@@ -10,11 +10,10 @@
 
 namespace exchange::fix {
 
-FixGateway::FixGateway(const FixGatewayConfig& config, const AssetTranslator& translator,
-                       RequestLFQueue& request_queue, ResponseLFQueue& response_queue,
-                       UserManager& user_mgr, utils::Logger& logger)
+FixGateway::FixGateway(const FixGatewayConfig& config, RequestLFQueue& request_queue,
+                       ResponseLFQueue& response_queue, UserManager& user_mgr,
+                       utils::Logger& logger)
     : config_(config),
-      translator_(translator),
       logger_(logger),
       request_queue_(request_queue),
       response_queue_(response_queue),
@@ -22,7 +21,7 @@ FixGateway::FixGateway(const FixGatewayConfig& config, const AssetTranslator& tr
       work_guard_(boost::asio::make_work_guard(io_context_)),
       acceptor_(io_context_),
       response_thread_("fix-resp", logger, config.response_thread_core),
-      sessions_(logger, translator, request_queue, user_mgr,
+      sessions_(logger, request_queue, user_mgr,
                 FixSessionConfig{.sender_comp_id = config.sender_comp_id,
                                  .target_comp_id = config.target_comp_id,
                                  .heartbeat_interval = config.heartbeat_interval}) {}
@@ -43,8 +42,9 @@ bool FixGateway::start() {
     boost::asio::ip::tcp::resolver resolver(io_context_);
     const auto endpoints = resolver.resolve(config_.bind_address, std::to_string(config_.port), ec);
     if (ec) {
-        logger_.error("FIX gateway: failed to resolve ", utils::ShortString::shorten(config_.bind_address),
-                      ":", config_.port, " — ", utils::ShortString::shorten(ec.message()));
+        logger_.error("FIX gateway: failed to resolve ",
+                      utils::ShortString::shorten(config_.bind_address), ":", config_.port, " — ",
+                      utils::ShortString::shorten(ec.message()));
         running_ = false;
         return false;
     }
@@ -53,7 +53,8 @@ bool FixGateway::start() {
     const auto& endpoint = *endpoints.begin();
     acceptor_.open(boost::asio::ip::tcp::v4(), ec);
     if (ec) {
-        logger_.error("FIX gateway: failed to open acceptor — ", utils::ShortString::shorten(ec.message()));
+        logger_.error("FIX gateway: failed to open acceptor — ",
+                      utils::ShortString::shorten(ec.message()));
         running_ = false;
         return false;
     }
@@ -61,21 +62,24 @@ bool FixGateway::start() {
     acceptor_.set_option(boost::asio::ip::tcp::acceptor::reuse_address(true), ec);
     acceptor_.bind(endpoint, ec);
     if (ec) {
-        logger_.error("FIX gateway: failed to bind to ", utils::ShortString::shorten(config_.bind_address),
-                      ":", config_.port, " — ", utils::ShortString::shorten(ec.message()));
+        logger_.error("FIX gateway: failed to bind to ",
+                      utils::ShortString::shorten(config_.bind_address), ":", config_.port, " — ",
+                      utils::ShortString::shorten(ec.message()));
         running_ = false;
         return false;
     }
 
     acceptor_.listen(boost::asio::socket_base::max_listen_connections, ec);
     if (ec) {
-        logger_.error("FIX gateway: failed to listen — ", utils::ShortString::shorten(ec.message()));
+        logger_.error("FIX gateway: failed to listen — ",
+                      utils::ShortString::shorten(ec.message()));
         running_ = false;
         return false;
     }
 
-    logger_.info("FIX gateway listening on ", utils::ShortString::shorten(config_.bind_address), ":",
-                 config_.port, " (sender=", utils::ShortString::shorten(config_.sender_comp_id),
+    logger_.info("FIX gateway listening on ", utils::ShortString::shorten(config_.bind_address),
+                 ":", config_.port,
+                 " (sender=", utils::ShortString::shorten(config_.sender_comp_id),
                  ", target=", utils::ShortString::shorten(config_.target_comp_id), ")");
 
     // Launch the thread pool

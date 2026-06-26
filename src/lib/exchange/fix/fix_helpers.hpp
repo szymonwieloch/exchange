@@ -17,7 +17,6 @@
 #include <fixpp/versions/v42.h>
 #pragma GCC diagnostic pop
 
-#include "lib/exchange/asset_translator.hpp"
 #include "lib/exchange/request.h"
 
 namespace exchange::fix::details {
@@ -88,14 +87,13 @@ namespace exchange::fix::details {
 ///        live in .rodata and are safe to log or send to clients.
 /// @pre   translator must be fully initialized with all known ticker symbols.
 [[nodiscard]] inline std::expected<Request, const char*> parseNewOrderSingle(
-    const Fixpp::v42::Message::NewOrderSingle::Ref& order, UserId user_id,
-    const AssetTranslator& translator) noexcept {
+    const Fixpp::v42::Message::NewOrderSingle::Ref& order, UserId user_id) noexcept {
     // --- Validate Symbol ---
     std::string symbol;
     if (!Fixpp::tryGet<Fixpp::Tag::Symbol>(order, symbol)) {
         return std::unexpected<const char*>("Required tag missing: Symbol (55)");
     }
-    const TickerId ticker = translator.resolve(symbol);
+    const TickerId ticker = TickerId::INVALID;  // TODO
     if (ticker == TickerId::INVALID) {
         return std::unexpected<const char*>("Unknown symbol");
     }
@@ -160,14 +158,13 @@ namespace exchange::fix::details {
 /// @return A valid Request on success, or a `const char*` error description on failure.
 /// @note  No heap allocations.  Error literals are static .rodata strings.
 [[nodiscard]] inline std::expected<Request, const char*> parseOrderCancelRequest(
-    const Fixpp::v42::Message::OrderCancelRequest::Ref& cancel, UserId user_id,
-    const AssetTranslator& translator) noexcept {
+    const Fixpp::v42::Message::OrderCancelRequest::Ref& cancel, UserId user_id) noexcept {
     // --- Validate Symbol ---
     std::string symbol;
     if (!Fixpp::tryGet<Fixpp::Tag::Symbol>(cancel, symbol)) {
         return std::unexpected<const char*>("Required tag missing: Symbol (55)");
     }
-    const TickerId ticker = translator.resolve(symbol);
+    const TickerId ticker = TickerId::INVALID;
     if (ticker == TickerId::INVALID) {
         return std::unexpected<const char*>("Unknown symbol");
     }

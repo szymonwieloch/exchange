@@ -6,7 +6,6 @@
 #include <sstream>
 #include <string>
 #include <string_view>
-#include <vector>
 
 #include "glaze/toml.hpp"
 #include "lib/utils/log.h"
@@ -24,7 +23,6 @@
 /// file  = "exchange.log"
 ///
 /// [engine]
-/// tickers = ["AAPL", "GOOG", "MSFT"]
 ///
 /// [threading]
 /// engine_core = 0
@@ -35,11 +33,6 @@ struct Config {
     struct Logging {
         std::string file = "exchange.log";
         utils::LogLevel level = utils::LogLevel::INFO;
-    };
-
-    /// Matching-engine configuration.
-    struct Engine {
-        std::vector<std::string> tickers;
     };
 
     /// Thread-pinning configuration.
@@ -68,7 +61,6 @@ struct Config {
     };
 
     Logging logging;
-    Engine engine;
     Threading threading;
     Metrics metrics;
     Fix fix;
@@ -87,12 +79,6 @@ template <>
 struct glz::meta<Config::Logging> {
     using T = Config::Logging;
     static constexpr auto value = glz::object(&T::level, &T::file);
-};
-
-template <>
-struct glz::meta<Config::Engine> {
-    using T = Config::Engine;
-    static constexpr auto value = glz::object(&T::tickers);
 };
 
 template <>
@@ -119,8 +105,7 @@ struct glz::meta<Config::Fix> {
 template <>
 struct glz::meta<Config> {
     using T = Config;
-    static constexpr auto value =
-        glz::object(&T::logging, &T::engine, &T::threading, &T::metrics, &T::fix);
+    static constexpr auto value = glz::object(&T::logging, &T::threading, &T::metrics, &T::fix);
 };
 
 // ── Parse helpers ───────────────────────────────────────────────────────

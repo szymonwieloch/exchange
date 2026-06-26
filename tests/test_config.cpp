@@ -2,7 +2,6 @@
 
 #include <expected>
 #include <string>
-#include <vector>
 
 #include "glaze/toml.hpp"
 #include "lib/main/config.h"
@@ -94,42 +93,20 @@ TEST(LoggingTest, ErrorOnUnknownKey) {
 TEST(EngineTest, DefaultsWhenSectionMissing) {
     auto result = parseConfigString("");
     ASSERT_TRUE(result.has_value());
-    EXPECT_TRUE(result->engine.tickers.empty());
+    // Engine section has no fields currently — just verify parsing succeeds.
 }
 
-TEST(EngineTest, ParsesTickersList) {
+TEST(EngineTest, ErrorOnUnknownEngineSection) {
+    // [engine] is no longer a known section — parsing should fail.
     auto result = parseConfigString(R"(
         [engine]
-        tickers = ["AAPL", "GOOG", "MSFT"]
     )");
-    ASSERT_TRUE(result.has_value());
-    const std::vector<std::string> expected = {"AAPL", "GOOG", "MSFT"};
-    EXPECT_EQ(result->engine.tickers, expected);
-}
-
-TEST(EngineTest, EmptyTickersList) {
-    auto result = parseConfigString(R"(
-        [engine]
-        tickers = []
-    )");
-    ASSERT_TRUE(result.has_value());
-    EXPECT_TRUE(result->engine.tickers.empty());
-}
-
-TEST(EngineTest, SingleTicker) {
-    auto result = parseConfigString(R"(
-        [engine]
-        tickers = ["ONLY"]
-    )");
-    ASSERT_TRUE(result.has_value());
-    ASSERT_EQ(result->engine.tickers.size(), 1u);
-    EXPECT_EQ(result->engine.tickers[0], "ONLY");
+    ASSERT_FALSE(result.has_value());
 }
 
 TEST(EngineTest, ErrorOnUnknownKey) {
     auto result = parseConfigString(R"(
         [engine]
-        tickers = ["AAPL"]
         max_orders = 1000
     )");
     ASSERT_FALSE(result.has_value());
@@ -245,9 +222,6 @@ TEST(ParseConfigTest, ParsesCompleteValidConfig) {
         level = "warn"
         file  = "/var/log/exchange.log"
 
-        [engine]
-        tickers = ["AAPL", "GOOG"]
-
         [threading]
         engine_core = 0
         logger_core = 1
@@ -255,7 +229,6 @@ TEST(ParseConfigTest, ParsesCompleteValidConfig) {
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result->logging.level, utils::LogLevel::WARN);
     EXPECT_EQ(result->logging.file, "/var/log/exchange.log");
-    EXPECT_EQ(result->engine.tickers, (std::vector<std::string>{"AAPL", "GOOG"}));
     EXPECT_EQ(result->threading.engine_core, 0);
     EXPECT_EQ(result->threading.logger_core, 1);
 }
@@ -265,7 +238,6 @@ TEST(ParseConfigTest, AllDefaultsWithEmptyConfig) {
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result->logging.level, utils::LogLevel::INFO);
     EXPECT_EQ(result->logging.file, "exchange.log");
-    EXPECT_TRUE(result->engine.tickers.empty());
     EXPECT_EQ(result->threading.engine_core, std::nullopt);
     EXPECT_EQ(result->threading.logger_core, std::nullopt);
     EXPECT_EQ(result->metrics.enabled, false);
@@ -294,12 +266,9 @@ TEST(ParseConfigTest, ErrorOnUnknownKeyInAnySection) {
         [logging]
         level = "info"
 
-        [engine]
-        tickers = ["AAPL"]
-        garbage = true
-
         [threading]
         engine_core = 0
+        garbage = true
     )");
     ASSERT_FALSE(result.has_value());
     EXPECT_NE(result.error().find("garbage"), std::string::npos);
@@ -310,9 +279,6 @@ TEST(ParseConfigTest, AllSectionsTogether) {
         [logging]
         level = "error"
         file  = "prod.log"
-
-        [engine]
-        tickers = ["BTC", "ETH", "SOL"]
 
         [threading]
         engine_core = 3
@@ -326,7 +292,6 @@ TEST(ParseConfigTest, AllSectionsTogether) {
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result->logging.level, utils::LogLevel::ERROR);
     EXPECT_EQ(result->logging.file, "prod.log");
-    EXPECT_EQ(result->engine.tickers, (std::vector<std::string>{"BTC", "ETH", "SOL"}));
     EXPECT_EQ(result->threading.engine_core, 3);
     EXPECT_EQ(result->threading.logger_core, 4);
     EXPECT_EQ(result->metrics.enabled, true);

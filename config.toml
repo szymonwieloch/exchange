@@ -8,8 +8,6 @@ level = "info"
 file  = "exchange.log"
 
 [engine]
-# List of tradeable tickers (max 8 as per compile-time constants)
-tickers = ["AAPL", "GOOG", "MSFT", "TSLA", "NVDA", "AMD", "INTC", "IBM"]
 
 [threading]
 # CPU core to pin the matching engine thread to.

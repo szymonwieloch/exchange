@@ -209,8 +209,8 @@ void FixSession::dispatchMessage(const char* frame, size_t size) {
     auto result = Fixpp::visit(frame, size, visitor, SessionVisitRules{});
     if (!result.isOk()) {
         const auto& err = result.unwrapErr();
-        logger_.warn("FIX parse error: ", utils::ShortString::shorten(err.asString()), " at column ",
-                     err.column());
+        logger_.warn("FIX parse error: ", utils::ShortString::shorten(err.asString()),
+                     " at column ", err.column());
         sendReject(last_msg_seq_num_, err.asString().c_str());
     }
 }
@@ -237,8 +237,8 @@ void FixSession::onLogon(const std::string& /*sender*/, const std::string& /*tar
     // Validate credentials
     auto opt_user = user_mgr_.checkUser(username, password);
     if (!opt_user.has_value()) {
-        logger_.warn("FIX logon rejected: invalid credentials for '", utils::ShortString::shorten(username),
-                     "'");
+        logger_.warn("FIX logon rejected: invalid credentials for '",
+                     utils::ShortString::shorten(username), "'");
         sendLogout("Invalid username or password");
         close();
         return;
@@ -302,7 +302,7 @@ void FixSession::onNewOrderSingle(const Fixpp::v42::Message::NewOrderSingle::Ref
 
     // --- Parse and validate ---
 
-    auto result = details::parseNewOrderSingle(order, user_id_, translator_);
+    auto result = details::parseNewOrderSingle(order, user_id_);
     if (!result.has_value()) {
         logger_.warn("FIX NewOrderSingle: ", result.error());
         // Determine BusinessRejectReason: 5 = Required tag missing, 0 = Other
@@ -338,7 +338,7 @@ void FixSession::onOrderCancelRequest(const Fixpp::v42::Message::OrderCancelRequ
 
     // --- Parse and validate ---
 
-    auto result = details::parseOrderCancelRequest(cancel, user_id_, translator_);
+    auto result = details::parseOrderCancelRequest(cancel, user_id_);
     if (!result.has_value()) {
         logger_.warn("FIX OrderCancelRequest: ", result.error());
         const bool is_missing = (std::string_view{result.error()}.find("Required tag missing") !=

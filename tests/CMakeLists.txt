@@ -33,7 +33,10 @@ add_executable(exchange_tests
 
 target_include_directories(exchange_tests PRIVATE
     ${PROJECT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_BINARY_DIR}/../src/gen
 )
+
+add_dependencies(exchange_tests generate_tickers)
 
 target_link_libraries(exchange_tests PRIVATE
     GTest::gtest_main

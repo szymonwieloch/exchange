@@ -18,7 +18,7 @@ constexpr size_t LOG_QUEUE_SIZE = 8 * 1024 * 1024;
 /// Maximum number of tradeable instruments (tickers) the matching engine
 /// supports. Each ticker owns a dedicated OrderBook with its own memory pools,
 /// pre-allocated at startup.
-constexpr size_t MAX_TICKERS = 8;
+constexpr size_t MAX_TICKERS = 100;
 
 /// Maximum number of outgoing user-response messages (order acceptances,
 /// fills, cancellations) that can be buffered before back-pressure is applied.

@@ -28,7 +28,6 @@
 #include <fixpp/writer.h>
 #pragma GCC diagnostic pop
 
-#include "lib/exchange/asset_translator.hpp"
 #include "lib/exchange/request.h"
 #include "lib/utils/buffer.h"
 #include "lib/utils/log.h"
@@ -59,12 +58,11 @@ enum class SessionState : uint8_t {
 /// keeps itself alive while async operations are pending.
 class FixSession final : public std::enable_shared_from_this<FixSession> {
 public:
-    FixSession(SessionId id, boost::asio::ip::tcp::socket socket, const AssetTranslator& translator,
-               const FixSessionConfig& config, RequestLFQueue& request_queue, utils::Logger& logger,
-               UserManager& user_mgr, FixSessions& sessions)
+    FixSession(SessionId id, boost::asio::ip::tcp::socket socket, const FixSessionConfig& config,
+               RequestLFQueue& request_queue, utils::Logger& logger, UserManager& user_mgr,
+               FixSessions& sessions)
         : id_(id),
           socket_(std::move(socket)),
-          translator_(translator),
           config_(config),
           request_queue_(request_queue),
           logger_(logger),
@@ -163,7 +161,6 @@ private:
 
     SessionId id_ = SessionId::INVALID;
     boost::asio::ip::tcp::socket socket_;
-    const AssetTranslator& translator_;
     const FixSessionConfig config_;
     RequestLFQueue& request_queue_;
     utils::Logger& logger_;

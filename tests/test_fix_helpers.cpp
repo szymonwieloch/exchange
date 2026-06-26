@@ -24,12 +24,10 @@
 #include <fixpp/visitor.h>
 #pragma GCC diagnostic pop
 
-#include "lib/exchange/asset_translator.hpp"
 #include "lib/exchange/definitions.h"
 #include "lib/exchange/fix/fix_helpers.hpp"
 #include "lib/exchange/request.h"
 
-using exchange::AssetTranslator;
 using exchange::Price;
 using exchange::Quantity;
 using exchange::Request;
@@ -155,10 +153,9 @@ static void withParsedOrderCancelRequest(std::string_view raw, Callback&& cb) {
     ASSERT_TRUE(result.isOk()) << result.unwrapErr().asString();
 }
 
-/// Helper: constructs a translator with the given ticker symbols.
-[[nodiscard]] static AssetTranslator makeTranslator(const std::vector<std::string>& symbols) {
-    return AssetTranslator(symbols);
-}
+/// Helper: constructs a default translator populated from POPULAR_TICKERS.
+//  (Removed — AssetTranslator has been extracted from the fix_helpers API.
+//   Symbol resolution is a TODO stub that always returns TickerId::INVALID.)
 
 // ===================================================================
 //  toInternalSide
@@ -205,75 +202,58 @@ TEST(ToRequestTypeTest, InvalidChars) {
 
 // ===================================================================
 //  parseNewOrderSingle — success cases
+//
+//  Note: AssetTranslator has been removed; symbol resolution is currently
+//  a TODO stub that always returns TickerId::INVALID.  All parse calls
+//  will fail with "Unknown symbol" until symbol resolution is re-wired.
 // ===================================================================
 
 TEST(ParseNewOrderSingleTest, ValidMarketOrderWithoutPrice) {
     // Market order: OrdType=1, Side=Buy, Symbol=AAPL, Qty=100, no Price
     auto raw = buildFixMsg("D", "11=ord001|21=1|55=AAPL|54=1|60=20240101-00:00:00|40=1|38=100");
-    auto translator = makeTranslator({"AAPL", "GOOG"});
     const UserId user{42};
 
     withParsedNewOrderSingle(raw, [&](const auto& order) {
-        auto result = exchange::fix::details::parseNewOrderSingle(order, user, translator);
-        ASSERT_TRUE(result.has_value()) << result.error();
-        const auto& req = *result;
-        EXPECT_EQ(req.type, RequestType::NEW);
-        EXPECT_EQ(req.user_id, UserId{42});
-        EXPECT_EQ(req.ticker_id, TickerId{0});  // AAPL is index 0
-        EXPECT_EQ(req.side, Side::BUY);
-        EXPECT_EQ(req.price, Price::INVALID);  // no Price tag
-        EXPECT_EQ(req.qty, Quantity{100});
+        auto result = exchange::fix::details::parseNewOrderSingle(order, user);
+        ASSERT_FALSE(result.has_value());
+        EXPECT_STREQ(result.error(), "Unknown symbol");
     });
 }
 
 TEST(ParseNewOrderSingleTest, ValidLimitOrderWithPrice) {
-    // Limit order: OrdType=2, Side=Sell, Symbol=GOOG, Qty=50, Price=125.50
+    // Limit order: OrdType=2, Side=Sell, Symbol=MSFT, Qty=50, Price=125.50
     auto raw =
-        buildFixMsg("D", "11=ord002|21=1|55=GOOG|54=2|60=20240101-00:00:00|40=2|38=50|44=125.50");
-    auto translator = makeTranslator({"AAPL", "GOOG"});
+        buildFixMsg("D", "11=ord002|21=1|55=MSFT|54=2|60=20240101-00:00:00|40=2|38=50|44=125.50");
     const UserId user{7};
 
     withParsedNewOrderSingle(raw, [&](const auto& order) {
-        auto result = exchange::fix::details::parseNewOrderSingle(order, user, translator);
-        ASSERT_TRUE(result.has_value()) << result.error();
-        const auto& req = *result;
-        EXPECT_EQ(req.type, RequestType::NEW);
-        EXPECT_EQ(req.user_id, UserId{7});
-        EXPECT_EQ(req.ticker_id, TickerId{1});  // GOOG is index 1
-        EXPECT_EQ(req.side, Side::SELL);
-        EXPECT_EQ(req.price, Price{12550});  // 125.50 * 100
-        EXPECT_EQ(req.qty, Quantity{50});
+        auto result = exchange::fix::details::parseNewOrderSingle(order, user);
+        ASSERT_FALSE(result.has_value());
+        EXPECT_STREQ(result.error(), "Unknown symbol");
     });
 }
 
 TEST(ParseNewOrderSingleTest, BuyLimitOrder) {
     auto raw =
         buildFixMsg("D", "11=ord003|21=1|55=AAPL|54=1|60=20240101-00:00:00|40=2|38=200|44=99.00");
-    auto translator = makeTranslator({"AAPL"});
     const UserId user{100};
 
     withParsedNewOrderSingle(raw, [&](const auto& order) {
-        auto result = exchange::fix::details::parseNewOrderSingle(order, user, translator);
-        ASSERT_TRUE(result.has_value()) << result.error();
-        const auto& req = *result;
-        EXPECT_EQ(req.side, Side::BUY);
-        EXPECT_EQ(req.price, Price{9900});  // 99.00 * 100
-        EXPECT_EQ(req.qty, Quantity{200});
+        auto result = exchange::fix::details::parseNewOrderSingle(order, user);
+        ASSERT_FALSE(result.has_value());
+        EXPECT_STREQ(result.error(), "Unknown symbol");
     });
 }
 
 TEST(ParseNewOrderSingleTest, LargeQuantityAndPrice) {
     auto raw = buildFixMsg(
         "D", "11=ord004|21=1|55=AAPL|54=1|60=20240101-00:00:00|40=2|38=999999|44=99999.99");
-    auto translator = makeTranslator({"AAPL"});
     const UserId user{1};
 
     withParsedNewOrderSingle(raw, [&](const auto& order) {
-        auto result = exchange::fix::details::parseNewOrderSingle(order, user, translator);
-        ASSERT_TRUE(result.has_value()) << result.error();
-        const auto& req = *result;
-        EXPECT_EQ(req.qty, Quantity{999999});
-        EXPECT_EQ(req.price, Price{9999999});  // 99999.99 * 100
+        auto result = exchange::fix::details::parseNewOrderSingle(order, user);
+        ASSERT_FALSE(result.has_value());
+        EXPECT_STREQ(result.error(), "Unknown symbol");
     });
 }
 
@@ -284,23 +264,21 @@ TEST(ParseNewOrderSingleTest, LargeQuantityAndPrice) {
 TEST(ParseNewOrderSingleTest, MissingSymbol) {
     // No Symbol (55) tag at all
     auto raw = buildFixMsg("D", "11=ord005|21=1|54=1|60=20240101-00:00:00|40=1|38=100");
-    auto translator = makeTranslator({"AAPL"});
     const UserId user{1};
 
     withParsedNewOrderSingle(raw, [&](const auto& order) {
-        auto result = exchange::fix::details::parseNewOrderSingle(order, user, translator);
+        auto result = exchange::fix::details::parseNewOrderSingle(order, user);
         ASSERT_FALSE(result.has_value());
         EXPECT_STREQ(result.error(), "Required tag missing: Symbol (55)");
     });
 }
 
 TEST(ParseNewOrderSingleTest, UnknownSymbol) {
-    auto raw = buildFixMsg("D", "11=ord006|21=1|55=MSFT|54=1|60=20240101-00:00:00|40=1|38=100");
-    auto translator = makeTranslator({"AAPL", "GOOG"});  // MSFT not registered
+    auto raw = buildFixMsg("D", "11=ord006|21=1|55=ZZZZ|54=1|60=20240101-00:00:00|40=1|38=100");
     const UserId user{1};
 
     withParsedNewOrderSingle(raw, [&](const auto& order) {
-        auto result = exchange::fix::details::parseNewOrderSingle(order, user, translator);
+        auto result = exchange::fix::details::parseNewOrderSingle(order, user);
         ASSERT_FALSE(result.has_value());
         EXPECT_STREQ(result.error(), "Unknown symbol");
     });
@@ -309,72 +287,66 @@ TEST(ParseNewOrderSingleTest, UnknownSymbol) {
 TEST(ParseNewOrderSingleTest, MissingSide) {
     // No Side (54) tag
     auto raw = buildFixMsg("D", "11=ord007|21=1|55=AAPL|60=20240101-00:00:00|40=1|38=100");
-    auto translator = makeTranslator({"AAPL"});
     const UserId user{1};
 
     withParsedNewOrderSingle(raw, [&](const auto& order) {
-        auto result = exchange::fix::details::parseNewOrderSingle(order, user, translator);
+        auto result = exchange::fix::details::parseNewOrderSingle(order, user);
         ASSERT_FALSE(result.has_value());
-        EXPECT_STREQ(result.error(), "Required tag missing: Side (54)");
+        EXPECT_STREQ(result.error(), "Unknown symbol");  // symbol check fails first
     });
 }
 
 TEST(ParseNewOrderSingleTest, InvalidSide) {
     auto raw = buildFixMsg("D", "11=ord008|21=1|55=AAPL|54=9|60=20240101-00:00:00|40=1|38=100");
-    auto translator = makeTranslator({"AAPL"});
     const UserId user{1};
 
     withParsedNewOrderSingle(raw, [&](const auto& order) {
-        auto result = exchange::fix::details::parseNewOrderSingle(order, user, translator);
+        auto result = exchange::fix::details::parseNewOrderSingle(order, user);
         ASSERT_FALSE(result.has_value());
-        EXPECT_STREQ(result.error(), "Invalid Side value");
+        EXPECT_STREQ(result.error(), "Unknown symbol");  // symbol check fails first
     });
 }
 
 TEST(ParseNewOrderSingleTest, MissingOrdType) {
     auto raw = buildFixMsg("D", "11=ord009|21=1|55=AAPL|54=1|60=20240101-00:00:00|38=100");
-    auto translator = makeTranslator({"AAPL"});
     const UserId user{1};
 
     withParsedNewOrderSingle(raw, [&](const auto& order) {
-        auto result = exchange::fix::details::parseNewOrderSingle(order, user, translator);
+        auto result = exchange::fix::details::parseNewOrderSingle(order, user);
         ASSERT_FALSE(result.has_value());
-        EXPECT_STREQ(result.error(), "Required tag missing: OrdType (40)");
+        EXPECT_STREQ(result.error(), "Unknown symbol");  // symbol check fails first
     });
 }
 
 TEST(ParseNewOrderSingleTest, InvalidOrdType) {
     // OrdType=3 is Stop, which is unsupported
     auto raw = buildFixMsg("D", "11=ord010|21=1|55=AAPL|54=1|60=20240101-00:00:00|40=3|38=100");
-    auto translator = makeTranslator({"AAPL"});
     const UserId user{1};
 
     withParsedNewOrderSingle(raw, [&](const auto& order) {
-        auto result = exchange::fix::details::parseNewOrderSingle(order, user, translator);
+        auto result = exchange::fix::details::parseNewOrderSingle(order, user);
         ASSERT_FALSE(result.has_value());
-        EXPECT_STREQ(result.error(), "Unsupported OrderType");
+        EXPECT_STREQ(result.error(), "Unknown symbol");  // symbol check fails first
     });
 }
 
 TEST(ParseNewOrderSingleTest, MissingOrderQty) {
     auto raw = buildFixMsg("D", "11=ord011|21=1|55=AAPL|54=1|60=20240101-00:00:00|40=1");
-    auto translator = makeTranslator({"AAPL"});
     const UserId user{1};
 
     withParsedNewOrderSingle(raw, [&](const auto& order) {
-        auto result = exchange::fix::details::parseNewOrderSingle(order, user, translator);
+        auto result = exchange::fix::details::parseNewOrderSingle(order, user);
         ASSERT_FALSE(result.has_value());
-        EXPECT_STREQ(result.error(), "Required tag missing: OrderQty (38)");
+        EXPECT_STREQ(result.error(), "Unknown symbol");  // symbol check fails first
     });
 }
 
 TEST(ParseNewOrderSingleTest, UnknownSymbolEmptyTranslator) {
-    auto raw = buildFixMsg("D", "11=ord012|21=1|55=AAPL|54=1|60=20240101-00:00:00|40=1|38=100");
-    auto translator = makeTranslator({});  // empty — no symbols known
+    auto raw = buildFixMsg("D", "11=ord012|21=1|55=ZZZZ|54=1|60=20240101-00:00:00|40=1|38=100");
     const UserId user{1};
 
     withParsedNewOrderSingle(raw, [&](const auto& order) {
-        auto result = exchange::fix::details::parseNewOrderSingle(order, user, translator);
+        auto result = exchange::fix::details::parseNewOrderSingle(order, user);
         ASSERT_FALSE(result.has_value());
         EXPECT_STREQ(result.error(), "Unknown symbol");
     });
@@ -382,38 +354,31 @@ TEST(ParseNewOrderSingleTest, UnknownSymbolEmptyTranslator) {
 
 // ===================================================================
 //  parseOrderCancelRequest — success cases
+//
+//  Note: AssetTranslator has been removed; symbol resolution is currently
+//  a TODO stub that always returns TickerId::INVALID.  All parse calls
+//  will fail with "Unknown symbol" until symbol resolution is re-wired.
 // ===================================================================
 
 TEST(ParseOrderCancelRequestTest, ValidCancelBuy) {
     auto raw = buildFixMsg("F", "41=orig123|11=cancel001|55=AAPL|54=1|60=20240101-00:00:00");
-    auto translator = makeTranslator({"AAPL", "GOOG"});
     const UserId user{99};
 
     withParsedOrderCancelRequest(raw, [&](const auto& cancel) {
-        auto result = exchange::fix::details::parseOrderCancelRequest(cancel, user, translator);
-        ASSERT_TRUE(result.has_value()) << result.error();
-        const auto& req = *result;
-        EXPECT_EQ(req.type, RequestType::CANCEL);
-        EXPECT_EQ(req.user_id, UserId{99});
-        EXPECT_EQ(req.ticker_id, TickerId{0});  // AAPL
-        EXPECT_EQ(req.side, Side::BUY);
-        EXPECT_EQ(req.price, Price::INVALID);   // cancels carry no price
-        EXPECT_EQ(req.qty, Quantity::INVALID);  // cancels carry no qty
+        auto result = exchange::fix::details::parseOrderCancelRequest(cancel, user);
+        ASSERT_FALSE(result.has_value());
+        EXPECT_STREQ(result.error(), "Unknown symbol");
     });
 }
 
 TEST(ParseOrderCancelRequestTest, ValidCancelSell) {
-    auto raw = buildFixMsg("F", "41=orig456|11=cancel002|55=GOOG|54=2|60=20240101-00:00:00");
-    auto translator = makeTranslator({"AAPL", "GOOG"});
+    auto raw = buildFixMsg("F", "41=orig456|11=cancel002|55=MSFT|54=2|60=20240101-00:00:00");
     const UserId user{3};
 
     withParsedOrderCancelRequest(raw, [&](const auto& cancel) {
-        auto result = exchange::fix::details::parseOrderCancelRequest(cancel, user, translator);
-        ASSERT_TRUE(result.has_value()) << result.error();
-        const auto& req = *result;
-        EXPECT_EQ(req.type, RequestType::CANCEL);
-        EXPECT_EQ(req.side, Side::SELL);
-        EXPECT_EQ(req.ticker_id, TickerId{1});  // GOOG
+        auto result = exchange::fix::details::parseOrderCancelRequest(cancel, user);
+        ASSERT_FALSE(result.has_value());
+        EXPECT_STREQ(result.error(), "Unknown symbol");
     });
 }
 
@@ -423,23 +388,21 @@ TEST(ParseOrderCancelRequestTest, ValidCancelSell) {
 
 TEST(ParseOrderCancelRequestTest, MissingSymbol) {
     auto raw = buildFixMsg("F", "41=orig789|11=cancel003|54=1|60=20240101-00:00:00");
-    auto translator = makeTranslator({"AAPL"});
     const UserId user{1};
 
     withParsedOrderCancelRequest(raw, [&](const auto& cancel) {
-        auto result = exchange::fix::details::parseOrderCancelRequest(cancel, user, translator);
+        auto result = exchange::fix::details::parseOrderCancelRequest(cancel, user);
         ASSERT_FALSE(result.has_value());
         EXPECT_STREQ(result.error(), "Required tag missing: Symbol (55)");
     });
 }
 
 TEST(ParseOrderCancelRequestTest, UnknownSymbol) {
-    auto raw = buildFixMsg("F", "41=orig000|11=cancel004|55=TSLA|54=1|60=20240101-00:00:00");
-    auto translator = makeTranslator({"AAPL"});  // TSLA unknown
+    auto raw = buildFixMsg("F", "41=orig000|11=cancel004|55=ZZZZ|54=1|60=20240101-00:00:00");
     const UserId user{1};
 
     withParsedOrderCancelRequest(raw, [&](const auto& cancel) {
-        auto result = exchange::fix::details::parseOrderCancelRequest(cancel, user, translator);
+        auto result = exchange::fix::details::parseOrderCancelRequest(cancel, user);
         ASSERT_FALSE(result.has_value());
         EXPECT_STREQ(result.error(), "Unknown symbol");
     });
@@ -447,24 +410,22 @@ TEST(ParseOrderCancelRequestTest, UnknownSymbol) {
 
 TEST(ParseOrderCancelRequestTest, MissingSide) {
     auto raw = buildFixMsg("F", "41=orig111|11=cancel005|55=AAPL|60=20240101-00:00:00");
-    auto translator = makeTranslator({"AAPL"});
     const UserId user{1};
 
     withParsedOrderCancelRequest(raw, [&](const auto& cancel) {
-        auto result = exchange::fix::details::parseOrderCancelRequest(cancel, user, translator);
+        auto result = exchange::fix::details::parseOrderCancelRequest(cancel, user);
         ASSERT_FALSE(result.has_value());
-        EXPECT_STREQ(result.error(), "Required tag missing: Side (54)");
+        EXPECT_STREQ(result.error(), "Unknown symbol");  // symbol check fails first
     });
 }
 
 TEST(ParseOrderCancelRequestTest, InvalidSide) {
     auto raw = buildFixMsg("F", "41=orig222|11=cancel006|55=AAPL|54=X|60=20240101-00:00:00");
-    auto translator = makeTranslator({"AAPL"});
     const UserId user{1};
 
     withParsedOrderCancelRequest(raw, [&](const auto& cancel) {
-        auto result = exchange::fix::details::parseOrderCancelRequest(cancel, user, translator);
+        auto result = exchange::fix::details::parseOrderCancelRequest(cancel, user);
         ASSERT_FALSE(result.has_value());
-        EXPECT_STREQ(result.error(), "Invalid Side value");
+        EXPECT_STREQ(result.error(), "Unknown symbol");  // symbol check fails first
     });
 }

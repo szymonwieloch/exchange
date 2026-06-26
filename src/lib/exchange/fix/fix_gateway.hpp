@@ -18,7 +18,6 @@
 #include "config.h"
 #include "sessions.hpp"
 // #include "fix_session.hpp"
-#include "lib/exchange/asset_translator.hpp"
 #include "lib/exchange/request.h"
 #include "lib/utils/log.h"
 #include "lib/utils/thread.h"
@@ -38,12 +37,10 @@ public:
     /// Constructs the gateway but does not start listening.
     ///
     /// @param config   Gateway configuration (port, threads, comp IDs).
-    /// @param translator  Reference to the asset name → TickerId mapper.
     /// @param engine_queue  MPSC queue for pushing parsed Requests to the engine.
     /// @param logger   Logger instance for all gateway events.
-    FixGateway(const FixGatewayConfig& config, const AssetTranslator& translator,
-               RequestLFQueue& request_queue, ResponseLFQueue& response_queue,
-               UserManager& user_mgr, utils::Logger& logger);
+    FixGateway(const FixGatewayConfig& config, RequestLFQueue& request_queue,
+               ResponseLFQueue& response_queue, UserManager& user_mgr, utils::Logger& logger);
 
     ~FixGateway();
 
@@ -73,7 +70,6 @@ private:
     using WorkGuard = boost::asio::executor_work_guard<boost::asio::io_context::executor_type>;
 
     const FixGatewayConfig config_;
-    const AssetTranslator& translator_;
     utils::Logger& logger_;
     RequestLFQueue& request_queue_;
     ResponseLFQueue& response_queue_;
