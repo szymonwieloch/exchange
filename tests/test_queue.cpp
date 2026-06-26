@@ -161,7 +161,8 @@ TEST(SPSCQueueTest, WorksWithStructPayload) {
 // ── SPSC thread test ─────────────────────────────────────────────
 TEST(SPSCQueueTest, SingleProducerSingleConsumerThreaded) {
     constexpr int kNumItems = 10'000;
-    SPSCQueue<int> queue(kNumItems);
+    // +1 for the sentinel slot used to disambiguate empty vs full
+    SPSCQueue<int> queue(kNumItems + 1);
 
     std::atomic<bool> producerDone{false};
 
