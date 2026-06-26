@@ -30,7 +30,9 @@ jobs:
       - name: Install dependencies
         run: |
           apt-get update && apt-get install -y --no-install-recommends \
-            cmake ninja-build git
+            cmake ninja-build git \
+            libboost-program-options-dev \
+            gperf
 
       - name: Configure CMake
         run: |
@@ -56,6 +58,13 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libboost-program-options-dev \
+            gperf
 
       - name: Set up compiler
         run: |
@@ -86,6 +95,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libboost-program-options-dev \
+            gperf
 
       - name: Configure with sanitizers
         run: |
