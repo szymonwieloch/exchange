@@ -50,8 +50,8 @@ public:
                 continue;
             }
 #ifndef NDEBUG
-            assert(!objBlock.is_free);
-            objBlock.is_free = true;
+            assert(!store[i].is_free);
+            store[i].is_free = true;
 #endif
             // Slot i is not in the free stack → still allocated.
             // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
